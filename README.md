@@ -14,6 +14,30 @@ A professional Bash-based CLI tool to manage Waydroid sessions, automate ADB con
 - Weston (`sudo apt install weston`)
 - Zenity (for file selection)
 - ADB (`sudo apt install adb`)
+- Python3 & pip (for `waydroid_script`)
+- Git (for cloning `waydroid_script`)
+
+### Kernel & Modules
+- Linux **kernel 5.10+** recommended
+- Required modules: `ashmem`, `binder`
+
+## 💻 Supported Linux Distributions
+Waydroid (and this manager) works on distributions where Waydroid can be installed. Officially tested:
+
+### Debian-based
+- Ubuntu 20.04, 22.04, 23.10
+- Debian 11, 12
+- Linux Mint 20.x, 21.x
+
+### Arch-based
+- Arch Linux (rolling release)
+- Manjaro
+
+### Fedora / RPM-based (community support)
+- Fedora 37+
+- openSUSE Leap 15.x
+
+⚠️ **Note:** Older kernels (<5.10) or distributions without Wayland support may not work. Make sure `ashmem` and `binder` kernel modules are loaded.
 
 ## 📥 Installation
 ```bash
