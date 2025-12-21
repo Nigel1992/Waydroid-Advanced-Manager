@@ -18,6 +18,6 @@ A professional Bash-based CLI tool to manage Waydroid sessions, automate ADB con
 ## 📥 Installation
 ```bash
 git clone https://github.com/Nigel1992/Waydroid-Manager-Xubuntu.git
-cd Waydroid-Manager
+cd Waydroid-Manager-Xubuntu
 chmod +x waydroid-manager.sh
 ./waydroid-manager.sh
