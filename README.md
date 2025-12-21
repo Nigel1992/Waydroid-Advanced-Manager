@@ -41,7 +41,7 @@ Waydroid (and this manager) works on distributions where Waydroid can be install
 
 ## 📥 Installation
 ```bash
-git clone https://github.com/Nigel1992/Waydroid-Manager-Xubuntu.git
-cd Waydroid-Manager-Xubuntu
+git clone https://github.com/Nigel1992/Waydroid-Advanced-Manager.git
+cd Waydroid-Advanced-Manager
 chmod +x waydroid-manager.sh
 ./waydroid-manager.sh
