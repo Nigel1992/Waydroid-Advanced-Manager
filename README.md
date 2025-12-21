@@ -1,5 +1,8 @@
 # Waydroid Advanced Manager
 
+<img width="663" height="474" alt="image" src="https://github.com/user-attachments/assets/2b301229-27c8-477e-baca-7dcb03999e08" />
+
+
 A professional Bash-based CLI tool to manage Waydroid sessions, automate ADB connections via universal IP detection, and integrate the `waydroid_script` for GApps and Magisk.
 
 ## 🚀 Features
