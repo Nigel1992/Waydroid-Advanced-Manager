@@ -1,7 +1,5 @@
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Nigel1992)
 
-> **Support this project* All donations go towards your chosen charity. You can pick any charity you'd like, and 5% is retained for Ko-Fi development costs. As a thank you, your name will be listed as a supporter/donor in this project. Feel free to email me at thedjskywalker@gmail.com for proof! :)
-
 # Waydroid Advanced Manager
 
 <img width="663" height="474" alt="image" src="https://github.com/user-attachments/assets/2b301229-27c8-477e-baca-7dcb03999e08" />
