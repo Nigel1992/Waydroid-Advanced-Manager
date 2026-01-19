@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## Changes between 3553f3a and HEAD (2026-01-19)
+## (2026-01-19)
 
 This release consolidates a series of improvements made since commit `3553f3a` up to the current HEAD. Highlights include new UX flows, safety checks, clipboard helpers, APK installer enhancements, and documentation updates.
 
@@ -25,9 +25,6 @@ This release consolidates a series of improvements made since commit `3553f3a` u
 - `zenity` is optional; the script falls back to terminal input when GUI dialog commands fail.
 - APK downloads must point to direct `.apk` files (no HTML redirects). Use `curl -fL` or `wget -O` to test downloads if needed.
 
-## [Unreleased] - 2026-01-19
-Keep future small fixes here.
 
-
-## 2024-xx-xx - Previous Releases
+## 2025-xx-xx - Previous Releases
 - See earlier commits for historical changes.
