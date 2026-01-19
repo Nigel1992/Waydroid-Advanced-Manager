@@ -121,13 +121,608 @@ install_apk() {
     if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
         wait_and_connect_adb $(get_waydroid_ip) || return
     fi
-    local APK=$(zenity --file-selection --title="Select APK" --file-filter="*.apk" 2>/dev/null)
-    if [ -f "$APK" ]; then
-        print_status "Installing $(basename "$APK")..."
-        adb -s "${CONNECTED_DEVICES[0]}" install -r "$APK"
-        print_success "Done."
+    local APK=""
+    local install_method=$(zenity --list --radiolist --title="APK Install Method" --text="Choose how to install the APK" --column="Select" --column="Method" TRUE "Select Local APK" FALSE "Install from URL" --height=200 --width=400 2>/dev/null)
+    if [ "$install_method" = "Select Local APK" ]; then
+        APK=$(zenity --file-selection --title="Select APK" --file-filter="*.apk" 2>/dev/null)
+        if [ -f "$APK" ]; then
+            print_status "Installing $(basename "$APK")..."
+            adb -s "${CONNECTED_DEVICES[0]}" install -r "$APK"
+            print_success "Done."
+        fi
+    elif [ "$install_method" = "Install from URL" ]; then
+        local APK_URL=$(zenity --entry --title="APK URL" --text="Enter direct APK URL (https://.../app.apk)" --width=500 2>/dev/null)
+        if [[ "$APK_URL" =~ ^https?://.*\.apk$ ]]; then
+            local TMP_APK="/tmp/waydroid_apk_$$.apk"
+            print_status "Downloading APK..."
+            if command -v curl >/dev/null 2>&1; then
+                curl -L -o "$TMP_APK" "$APK_URL"
+            elif command -v wget >/dev/null 2>&1; then
+                wget -O "$TMP_APK" "$APK_URL"
+            else
+                print_error "curl or wget required to download APK."
+                read -n 1 -p "Press any key..."
+                return
+            fi
+            if [ -f "$TMP_APK" ]; then
+                print_status "Installing $(basename "$TMP_APK")..."
+                adb -s "${CONNECTED_DEVICES[0]}" install -r "$TMP_APK"
+                print_success "Done."
+                rm -f "$TMP_APK"
+            else
+                print_error "Failed to download APK."
+            fi
+        else
+            print_error "Invalid URL. Must end with .apk"
+        fi
     fi
     read -n 1 -p "Press any key..."
+}
+
+# Copy/Paste to Android
+copy_paste_to_android() {
+    print_header
+    local text
+    # Prefer graphical input if available, but gracefully fall back
+    # Try graphical input (zenity) with environment fallbacks, else terminal input
+    if command -v zenity >/dev/null 2>&1; then
+        # Attempt to set Wayland/X11 display envs if missing
+        if [ -z "$WAYLAND_DISPLAY" ]; then
+            wd=$(ls /run/user/$(id -u)/wayland-* 2>/dev/null | head -n1 | xargs -n1 basename 2>/dev/null || true)
+            [ -n "$wd" ] && export WAYLAND_DISPLAY="$wd"
+        fi
+        if [ -z "$DISPLAY" ]; then
+            [ -e /tmp/.X11-unix/X0 ] && export DISPLAY=":0"
+        fi
+
+        text=$(WAYLAND_DISPLAY="$WAYLAND_DISPLAY" DISPLAY="$DISPLAY" zenity --entry --title="Copy to Android Clipboard" --text="Enter text to copy to Android. After copying, long-press in Android input and choose Paste." --width=600 2>/dev/null)
+        status=$?
+        if [ $status -ne 0 ] || [ -z "$text" ]; then
+            echo "\n(Fallback) Enter text to copy to Android (end with ENTER):"
+            read -r text
+        fi
+    else
+        echo "Enter text to copy to Android (end with ENTER):"
+        read -r text
+    fi
+
+    if [ -z "$text" ]; then
+        print_status "Cancelled"
+        sleep 1
+        return
+    fi
+
+    if ! command -v wl-copy >/dev/null 2>&1; then
+        print_error "wl-copy not found. Install wl-clipboard to use this feature."
+        read -n 1 -p "Press any key..."
+        return
+    fi
+
+    # Ensure WAYLAND_DISPLAY is set for wl-copy; prefer existing env or auto-detect
+    if [ -z "$WAYLAND_DISPLAY" ]; then
+        wd=$(ls /run/user/$(id -u)/wayland-* 2>/dev/null | head -n1 | xargs -n1 basename 2>/dev/null || true)
+        if [ -n "$wd" ]; then
+            export WAYLAND_DISPLAY="$wd"
+        fi
+    fi
+
+    echo -n "$text" | WAYLAND_DISPLAY="$WAYLAND_DISPLAY" wl-copy
+
+    print_success "Text copied to host Wayland clipboard."
+    echo "Long-press inside your Android app's input field and choose Paste to insert the text."
+    read -n 1 -p "Press any key..."
+}
+
+# Uninstall Apps Menu
+uninstall_apps_menu() {
+    # Check if Waydroid is running
+    if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        print_header
+        print_error "Waydroid is not running!"
+        echo ""
+        read -p "Start Waydroid now? (y/N): " start_choice
+        if [[ "$start_choice" =~ ^[Yy]$ ]]; then
+            restart_waydroid
+        else
+            print_status "App Management requires Waydroid to be running."
+            sleep 2
+            return
+        fi
+    fi
+    
+    # Ensure ADB connection
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        print_status "Establishing ADB connection..."
+        wait_and_connect_adb $(get_waydroid_ip) || {
+            print_error "Failed to connect to ADB. Please try again."
+            sleep 2
+            return
+        }
+    fi
+    
+    while true; do
+        print_header
+        echo -e "${BOLD}${GREEN}━━━ APPLICATION MANAGEMENT ━━━${NC}"
+        echo ""
+        echo -e "${BOLD}${CYAN}┌─ OPTIONS${NC} ${BOLD}${CYAN}───────────────────────────────────────────┐${NC}"
+        echo -e "${CYAN}│${NC}  ${BOLD}1)${NC}  📋 List Installed Apps"
+        echo -e "${CYAN}│${NC}  ${BOLD}2)${NC}  🗑 Uninstall App by Package Name"
+        echo -e "${CYAN}│${NC}  ${BOLD}3)${NC}  🗑 Uninstall from List (Interactive)"
+        echo -e "${CYAN}└${NC}${CYAN}──────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+        echo -e "${BOLD}${MAGENTA}4)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
+        echo -e "${CYAN}==================================================${NC}"
+        echo ""
+        
+        read -p "Selection: " APP_CHOICE
+        case "$APP_CHOICE" in
+            1) list_installed_apps ;;
+            2) uninstall_by_package ;;
+            3) uninstall_from_list ;;
+            4) break ;;
+            *) echo -e "${RED}❌ Invalid selection.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# List Installed Apps
+list_installed_apps() {
+    # Check if Waydroid is running
+    if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        print_header
+        print_error "Waydroid is not running!"
+        echo ""
+        read -p "Start Waydroid now? (y/N): " start_choice
+        if [[ "$start_choice" =~ ^[Yy]$ ]]; then
+            restart_waydroid
+        else
+            print_status "Listing apps requires Waydroid to be running."
+            sleep 2
+            return
+        fi
+    fi
+    
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ INSTALLED APPLICATIONS ━━━${NC}\n"
+    
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        print_error "Not connected to ADB. Attempting to reconnect..."
+        wait_and_connect_adb $(get_waydroid_ip) || {
+            print_error "Failed to connect"
+            sleep 2
+            return
+        }
+    fi
+    
+    echo -e "${BOLD}${BLUE}┌─ SYSTEM APPS + USER APPS${NC} ${BOLD}${BLUE}──────────────────────────┐${NC}"
+    echo ""
+    print_status "Fetching apps list..."
+    echo ""
+    
+    local apps=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://')
+    local app_count=$(echo "$apps" | grep -c . || echo 0)
+    
+    if [ $app_count -gt 0 ]; then
+        echo "$apps" | head -50
+        echo ""
+        if [ $app_count -gt 50 ]; then
+            echo -e "${YELLOW}... and $((app_count - 50)) more apps${NC}"
+        fi
+        echo ""
+        echo -e "${BLUE}└${NC}${BLUE}─────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+        echo -e "${BOLD}📊 Total Installed:${NC} $app_count packages"
+    else
+        print_error "No apps found or device not responding"
+        echo -e "${YELLOW}Make sure Waydroid is running and ADB connection is active.${NC}"
+    fi
+    
+    echo ""
+    read -n 1 -p "Press any key to continue..."
+}
+
+# Uninstall by Package Name
+uninstall_by_package() {
+    # Check if Waydroid is running
+    if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        print_header
+        print_error "Waydroid is not running!"
+        echo ""
+        read -p "Start Waydroid now? (y/N): " start_choice
+        if [[ "$start_choice" =~ ^[Yy]$ ]]; then
+            restart_waydroid
+        else
+            print_status "Uninstalling apps requires Waydroid to be running."
+            sleep 2
+            return
+        fi
+    fi
+    
+    print_header
+    echo -e "${BOLD}${YELLOW}━━━ UNINSTALL APP BY PACKAGE NAME ━━━${NC}\n"
+    
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        print_error "Not connected to ADB. Attempting to reconnect..."
+        wait_and_connect_adb $(get_waydroid_ip) || {
+            print_error "Failed to connect"
+            sleep 2
+            return
+        }
+    fi
+    
+    read -p "📦 Enter package name to uninstall (e.g., com.example.app): " package_name
+    
+    if [ -z "$package_name" ]; then
+        print_error "Package name cannot be empty"
+        sleep 2
+        return
+    fi
+    
+    echo ""
+    echo -e "${BOLD}${CYAN}━━━ UNINSTALLING ━━━${NC}\n"
+    print_status "Attempting to uninstall: ${BOLD}${package_name}${NC}..."
+    
+    local result=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm uninstall "$package_name" 2>&1)
+    
+    if echo "$result" | grep -q "Success"; then
+        echo ""
+        print_success "✓ Successfully uninstalled ${BOLD}${package_name}${NC}"
+    else
+        echo ""
+        print_error "✗ Failed to uninstall ${BOLD}${package_name}${NC}"
+        echo -e "${YELLOW}Response: $result${NC}"
+    fi
+    
+    # Check if Waydroid is still running
+    sleep 1
+    if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        echo ""
+        print_error "Waydroid stopped during operation!"
+        echo -e "${YELLOW}Automatically restarting Waydroid...${NC}"
+        sleep 2
+        restart_waydroid
+    fi
+}
+
+# Uninstall from Interactive List
+uninstall_from_list() {
+    # Check if Waydroid is running
+    if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        print_header
+        print_error "Waydroid is not running!"
+        echo ""
+        read -p "Start Waydroid now? (y/N): " start_choice
+        if [[ "$start_choice" =~ ^[Yy]$ ]]; then
+            restart_waydroid
+        else
+            print_status "Uninstalling apps requires Waydroid to be running."
+            sleep 2
+            return
+        fi
+    fi
+
+    while true; do
+        clear
+        print_header
+        # Live status info
+        echo -e "${BOLD}${YELLOW}━━━ SELECT APP TO UNINSTALL ━━━${NC}\n"
+        echo -e "${CYAN}Waydroid status:${NC} $(waydroid status 2>/dev/null | grep -o 'RUNNING\|STOPPED')"
+        echo -e "${CYAN}ADB devices:${NC} $(adb devices | grep -v 'List' | grep -v '^$' | wc -l)"
+        echo -e "${CYAN}Date:${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
+
+        # Ask user: all apps or user apps
+        app_type=$(zenity --list --radiolist --title="App List Type" --text="Show all apps or only user-installed?" --column="Select" --column="Type" TRUE "User Installed" FALSE "All Apps" --height=200 --width=400 2>/dev/null)
+        if [ -z "$app_type" ]; then
+            print_status "Cancelled"
+            sleep 1
+            return
+        fi
+
+        print_status "Fetching installed apps..."
+        if [ "$app_type" = "User Installed" ]; then
+            # Only user apps (not system)
+            apps_array=($(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages -3 2>/dev/null | sed 's/package://' | sort))
+        else
+            # All apps
+            apps_array=($(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | sort))
+        fi
+        app_count=${#apps_array[@]}
+
+        if [ $app_count -eq 0 ]; then
+            print_error "No apps found or device not responding"
+            echo -e "${YELLOW}Make sure Waydroid is running and ADB connection is active.${NC}"
+            sleep 2
+            return
+        fi
+
+        print_success "Found $app_count applications\n"
+
+        # Use zenity for graphical selection
+        app_list_str=""
+        for pkg in "${apps_array[@]}"; do
+            app_list_str+="$pkg\n"
+        done
+        selected_app=$(echo -e "$app_list_str" | zenity --list --title="Select App to Uninstall" --column="Package Name" --height=500 --width=600 2>/dev/null)
+        if [ -z "$selected_app" ]; then
+            print_status "Cancelled"
+            sleep 1
+            return
+        fi
+        echo ""
+        echo -e "${BOLD}${CYAN}Confirm uninstall of:${NC} ${BOLD}${selected_app}${NC}?"
+        zenity --question --title="Confirm Uninstall" --text="Uninstall $selected_app?" --width=400 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo ""
+            print_status "Uninstalling ${BOLD}${selected_app}${NC}..."
+            result=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm uninstall "$selected_app" 2>&1)
+            if echo "$result" | grep -q "Success"; then
+                echo ""
+                print_success "✓ Successfully uninstalled ${BOLD}${selected_app}${NC}"
+            else
+                echo ""
+                print_error "✗ Failed to uninstall ${BOLD}${selected_app}${NC}"
+                echo -e "${YELLOW}Response: $result${NC}"
+            fi
+            sleep 1
+            if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                echo ""
+                print_error "Waydroid stopped during operation!"
+                echo -e "${YELLOW}Automatically restarting Waydroid...${NC}"
+                sleep 2
+                restart_waydroid
+            fi
+            sleep 2
+            break
+        else
+            print_status "Uninstall cancelled"
+            sleep 1
+            break
+        fi
+    done
+}
+
+# Display Settings Menu
+change_display_settings() {
+    while true; do
+        print_header
+        echo -e "${BOLD}${GREEN}━━━ DISPLAY SETTINGS ━━━${NC}"
+        echo ""
+        echo -e "${BOLD}${CYAN}┌─ QUICK APPLY${NC} ${BOLD}${CYAN}─────────────────────────────────┐${NC}"
+        echo -e "${CYAN}│${NC}  ${BOLD}1)${NC}  📱 Preset Resolutions"
+        echo -e "${CYAN}│${NC}  ${BOLD}2)${NC}  📐 Preset Densities"
+        echo -e "${CYAN}│${NC}  ${BOLD}3)${NC}  📊 View Current Settings"
+        echo -e "${CYAN}│${NC}  ${BOLD}4)${NC}  ♻️  Reset Display Settings"
+        echo -e "${CYAN}└${NC}${CYAN}─────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+        echo -e "${BOLD}${YELLOW}┌─ CUSTOM OPTIONS${NC} ${BOLD}${YELLOW}──────────────────────────────────┐${NC}"
+        echo -e "${YELLOW}│${NC}  ${BOLD}5)${NC}  🎯 Custom Resolution"
+        echo -e "${YELLOW}│${NC}  ${BOLD}6)${NC}  🎯 Custom Density"
+        echo -e "${YELLOW}│${NC}  ${BOLD}7)${NC}  🎯 Custom Both (Resolution + Density)"
+        echo -e "${YELLOW}└${NC}${YELLOW}─────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+        echo -e "${BOLD}${MAGENTA}8)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
+        echo -e "${CYAN}==================================================${NC}"
+        echo ""
+        read -p "Selection: " DISPLAY_CHOICE
+        case "$DISPLAY_CHOICE" in
+            1) preset_resolutions ;;
+            2) preset_densities ;;
+            3) view_current_settings ;;
+            4)
+                echo -e "${YELLOW}Resetting display size and density to default...${NC}"
+                sudo waydroid shell wm size reset
+                sudo waydroid shell wm density reset
+                echo -e "${GREEN}Display settings reset to default.${NC}"
+                sleep 2
+                ;;
+            5) custom_resolution ;;
+            6) custom_density ;;
+            7) custom_both ;;
+            8) break ;;
+            *) echo -e "${RED}❌ Invalid selection.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# Preset Resolutions
+preset_resolutions() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ SELECT RESOLUTION ━━━${NC}"
+    echo ""
+    echo -e "${BOLD}${GREEN}┌─ PORTRAIT MODES${NC} ${BOLD}${GREEN}──────────────────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  ${BOLD}1)${NC}  📱 1080 x 2340 (FHD+ - Flagship)"
+    echo -e "${GREEN}│${NC}  ${BOLD}2)${NC}  📱 1440 x 3120 (QHD+ - Premium)"
+    echo -e "${GREEN}│${NC}  ${BOLD}3)${NC}  📱 720 x 1520 (HD+ - Budget)"
+    echo -e "${GREEN}│${NC}  ${BOLD}4)${NC}  📱 1440 x 2560 (QHD - Mid-range)"
+    echo -e "${GREEN}└${NC}${GREEN}─────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "${BOLD}${BLUE}┌─ LANDSCAPE MODE${NC} ${BOLD}${BLUE}────────────────────────────────────┐${NC}"
+    echo -e "${BLUE}│${NC}  ${BOLD}5)${NC}  🖥 1080 x 1920 (FHD Landscape)"
+    echo -e "${BLUE}└${NC}${BLUE}─────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "${BOLD}${MAGENTA}6)${NC}  ${MAGENTA}↩ Back${NC}"
+    echo -e "${CYAN}==================================================${NC}"
+    
+    read -p "Selection: " RES_CHOICE
+    local width height
+    case "$RES_CHOICE" in
+        1) width=1080; height=2340 ;;
+        2) width=1440; height=3120 ;;
+        3) width=720; height=1520 ;;
+        4) width=1080; height=1920 ;;
+        5) width=1440; height=2560 ;;
+        6) return ;;
+        *) echo -e "${RED}Invalid selection.${NC}"; sleep 1; return ;;
+    esac
+    
+    apply_resolution "$width" "$height"
+}
+
+# Preset Densities
+preset_densities() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ SELECT DENSITY (DPI) ━━━${NC}"
+    echo ""
+    echo -e "${BOLD}${GREEN}┌─ STANDARD DENSITIES${NC} ${BOLD}${GREEN}──────────────────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  ${BOLD}1)${NC}  📊 160 dpi   MDPI (Standard - Older devices)"
+    echo -e "${GREEN}│${NC}  ${BOLD}2)${NC}  📊 213 dpi   TVDPI (TV Density)"
+    echo -e "${GREEN}│${NC}  ${BOLD}3)${NC}  📊 240 dpi   HDPI (High)"
+    echo -e "${GREEN}└${NC}${GREEN}─────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "${BOLD}${BLUE}┌─ HIGH DENSITIES${NC} ${BOLD}${BLUE}────────────────────────────────────────┐${NC}"
+    echo -e "${BLUE}│${NC}  ${BOLD}4)${NC}  📊 320 dpi   XHDPI (Extra-High)"
+    echo -e "${BLUE}│${NC}  ${BOLD}5)${NC}  📊 480 dpi   XXHDPI (Extra-Extra-High)"
+    echo -e "${BLUE}│${NC}  ${BOLD}6)${NC}  📊 640 dpi   XXXHDPI (Ultra - High-end devices)"
+    echo -e "${BLUE}└${NC}${BLUE}─────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "${BOLD}${MAGENTA}7)${NC}  ${MAGENTA}↩ Back${NC}"
+    echo -e "${CYAN}==================================================${NC}"
+    
+    read -p "Selection: " DEN_CHOICE
+    local density
+    case "$DEN_CHOICE" in
+        1) density=160 ;;
+        2) density=213 ;;
+        3) density=240 ;;
+        4) density=320 ;;
+        5) density=480 ;;
+        6) density=640 ;;
+        7) return ;;
+        *) echo -e "${RED}Invalid selection.${NC}"; sleep 1; return ;;
+    esac
+    
+    apply_density "$density"
+}
+
+# Custom Resolution
+custom_resolution() {
+    print_header
+    echo -e "${BOLD}${YELLOW}━━━ CUSTOM RESOLUTION ━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}Examples: 1080, 720, 1440, 2160${NC}"
+    echo ""
+    read -p "📏 Enter width in pixels: " width
+    read -p "📏 Enter height in pixels: " height
+    
+    if [[ "$width" =~ ^[0-9]+$ ]] && [[ "$height" =~ ^[0-9]+$ ]]; then
+        apply_resolution "$width" "$height"
+    else
+        print_error "Invalid input. Please enter numeric values."
+        sleep 2
+    fi
+}
+
+# Custom Density
+custom_density() {
+    print_header
+    echo -e "${BOLD}${YELLOW}━━━ CUSTOM DENSITY (DPI) ━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}Standard ranges: 160-640${NC}"
+    echo -e "${YELLOW}Common values: 160, 213, 240, 320, 480, 640${NC}"
+    echo ""
+    read -p "📊 Enter density in DPI: " density
+    
+    if [[ "$density" =~ ^[0-9]+$ ]]; then
+        apply_density "$density"
+    else
+        print_error "Invalid input. Please enter numeric value."
+        sleep 2
+    fi
+}
+
+# Custom Both
+custom_both() {
+    print_header
+    echo -e "${BOLD}${YELLOW}━━━ CUSTOM RESOLUTION + DENSITY ━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}Configure both display size and pixel density${NC}"
+    echo ""
+    read -p "📏 Enter width in pixels (e.g., 1080): " width
+    read -p "📏 Enter height in pixels (e.g., 2340): " height
+    read -p "📊 Enter density in DPI (e.g., 240): " density
+    
+    if [[ "$width" =~ ^[0-9]+$ ]] && [[ "$height" =~ ^[0-9]+$ ]] && [[ "$density" =~ ^[0-9]+$ ]]; then
+        apply_resolution "$width" "$height"
+        apply_density "$density"
+    else
+        print_error "Invalid input. Please enter numeric values."
+        sleep 2
+    fi
+}
+
+# Apply Resolution
+apply_resolution() {
+    local width=$1
+    local height=$2
+    
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+    
+    echo -e "\n${BOLD}${CYAN}━━━ APPLYING RESOLUTION ━━━${NC}\n"
+    print_status "Setting resolution to ${BOLD}${width}x${height}${NC}..."
+    adb -s "${CONNECTED_DEVICES[0]}" shell wm size "${width}x${height}" 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        print_success "✓ Resolution successfully set to ${BOLD}${width}x${height}${NC}"
+    else
+        echo ""
+        print_error "✗ Failed to set resolution"
+    fi
+    sleep 3
+}
+
+# Apply Density
+apply_density() {
+    local density=$1
+    
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+    
+    echo -e "\n${BOLD}${CYAN}━━━ APPLYING DENSITY ━━━${NC}\n"
+    print_status "Setting density to ${BOLD}${density} dpi${NC}..."
+    adb -s "${CONNECTED_DEVICES[0]}" shell wm density "$density" 2>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        print_success "✓ Density successfully set to ${BOLD}${density} dpi${NC}"
+    else
+        echo ""
+        print_error "✗ Failed to set density"
+    fi
+    sleep 3
+}
+
+# View Current Settings
+view_current_settings() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ CURRENT DISPLAY SETTINGS ━━━${NC}\n"
+    
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+    
+    echo -e "${BOLD}${GREEN}┌─ DEVICE INFORMATION${NC} ${BOLD}${GREEN}─────────────────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  Connected Device: ${CONNECTED_DEVICES[0]}"
+    echo -e "${GREEN}└${NC}${GREEN}─────────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    
+    echo -e "${BOLD}${BLUE}┌─ DISPLAY CONFIGURATION${NC} ${BOLD}${BLUE}──────────────────────────────────┐${NC}"
+    
+    echo -ne "${BLUE}│${NC}  📏 Display Size:     "
+    local resolution=$(adb -s "${CONNECTED_DEVICES[0]}" shell wm size 2>/dev/null | grep -oP '\d+x\d+' || echo "Unable to retrieve")
+    echo -e "${BOLD}${resolution}${NC}"
+    
+    echo -ne "${BLUE}│${NC}  📊 Display Density:  "
+    local density=$(adb -s "${CONNECTED_DEVICES[0]}" shell wm density 2>/dev/null | grep -oP '\d+' | head -1 || echo "Unable to retrieve")
+    echo -e "${BOLD}${density} dpi${NC}"
+    
+    echo -e "${BLUE}└${NC}${BLUE}─────────────────────────────────────────────────────────┘${NC}"
+    
+    echo ""
+    read -n 1 -p "Press any key to return..."
 }
 
 # ---------------- MAIN MENU ----------------
@@ -139,7 +734,10 @@ while true; do
     echo -e "  ${BOLD}4)${NC} ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc. by casualsnek/waydroid_script)"
     echo -e "  ${BOLD}5)${NC} ${BLUE}LIST${NC} ADB Devices"
     echo -e "  ${BOLD}6)${NC} ${YELLOW}RECONNECT${NC} ADB"
-    echo -e "  ${BOLD}7)${NC} EXIT"
+    echo -e "  ${BOLD}7)${NC} ${GREEN}DISPLAY SETTINGS${NC} (Resolution, Density, etc.)"
+    echo -e "  ${BOLD}8)${NC} ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
+    echo -e "  ${BOLD}9)${NC} ${MAGENTA}COPY/PASTE${NC} to Android"
+    echo -e "  ${BOLD}10)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -152,12 +750,87 @@ while true; do
     read -p "Selection: " CHOICE
     case "$CHOICE" in
         1) restart_waydroid ;;
-        2) stop_waydroid ;;
-        3) install_apk ;;
-        4) run_waydroid_script ;;
-        5) print_header; adb devices -l; read -n 1 -p "Press any key..." ;;
-        6) wait_and_connect_adb $(get_waydroid_ip) ;;
-        7) clear; exit 0 ;;
+        2)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                stop_waydroid
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        3)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                install_apk
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        4)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                run_waydroid_script
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        5)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                print_header; adb devices -l; read -n 1 -p "Press any key..."
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        6)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                wait_and_connect_adb $(get_waydroid_ip)
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        7)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                change_display_settings
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        8)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                uninstall_apps_menu
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        9)
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                copy_paste_to_android
+            else
+                print_header
+                print_error "Waydroid is not running! Start it using option 1 in the main menu."
+                echo ""
+                read -n 1 -p "Press any key..."
+            fi
+            ;;
+        10) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
