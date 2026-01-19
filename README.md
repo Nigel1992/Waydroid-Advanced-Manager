@@ -50,6 +50,10 @@ chmod +x waydroid-manager.sh
 - Added `copy_paste_to_android` helper for easy pasting into Android.
  - Main menu now enforces Waydroid running for critical actions and provides guidance to start it (option 1).
  - APK-from-URL now validates downloads and provides curl/wget fallback.
+ - `copy_paste_to_android` uses `wl-copy` on Wayland (auto-detects `WAYLAND_DISPLAY` or falls back to `DISPLAY`), with Zenity/terminal input fallbacks.
+ - Added `Reset Display Settings` to restore default size and density.
  - Several usability and input fallbacks added (Zenity -> terminal).
+
+Changes between commit `3553f3a` and current HEAD are summarized in `CHANGELOG.md`.
 
 See `CHANGELOG.md` for full details.

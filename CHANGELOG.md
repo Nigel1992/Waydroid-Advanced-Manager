@@ -2,21 +2,31 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased] - 2026-01-19
+## Changes between 3553f3a and HEAD (2026-01-19)
+
+This release consolidates a series of improvements made since commit `3553f3a` up to the current HEAD. Highlights include new UX flows, safety checks, clipboard helpers, APK installer enhancements, and documentation updates.
+
 ### Added
 - Zenity-based graphical "Uninstall from list" dialog for selecting apps to uninstall.
-- APK installer: option to install from a local file or a direct URL (downloads to /tmp and installs).
-- `copy_paste_to_android` helper: prompts for text (Zenity or terminal) and copies to host Wayland clipboard via `wl-copy` for easy pasting into Android.
-- Display settings: added "Reset Display Settings" (runs `sudo waydroid shell wm size reset` and `sudo waydroid shell wm density reset`).
+- APK installer: choice to install from a local APK file or a direct URL (downloads to `/tmp` then installs).
+- `copy_paste_to_android` helper: prompts for text (Zenity if available, otherwise terminal) and copies to the host Wayland clipboard using `wl-copy` for easy pasting into Android.
+- Display settings: added "Reset Display Settings" which runs `sudo waydroid shell wm size reset` and `sudo waydroid shell wm density reset`.
+- Full README and installation updates (instructions to install required packages for full functionality).
 
-### Changed
-- Main menu safety: options that modify Waydroid or apps now require Waydroid to be running; messages instruct to start via option 1.
-- Improved error handling and ADB reconnection logic across app management flows.
-- Added APK download validation guidance and fallback behavior.
+### Changed / Fixed
+- Main menu safety: critical options (stop, install, scripts, reconnect, display, app management, copy/paste) now check that Waydroid is running and provide guidance to start it (option 1) if not.
+- APK-from-URL flow: added download logic with `curl`/`wget` fallback and guidance for validating downloaded APKs; script now handles common download failures more gracefully.
+- Copy/paste: Zenity input now attempts to set `WAYLAND_DISPLAY`/`DISPLAY` when needed and falls back to terminal input; script validates presence of `wl-copy`.
+- Menu renumbering and UX polish (exit and copy/paste option numbering adjusted, consistent prompts and pause screens).
+- Improved ADB reconnect and device-check logic used across app-management flows.
 
 ### Notes
-- `wl-clipboard` (`wl-copy`) is required for the copy/paste helper to work on Wayland sessions.
-- Zenity is optional; the script falls back to terminal input when GUI dialog commands fail.
+- `wl-clipboard` (`wl-copy`) is required for the copy/paste helper on Wayland. The script will tell users to install it if missing.
+- `zenity` is optional; the script falls back to terminal input when GUI dialog commands fail.
+- APK downloads must point to direct `.apk` files (no HTML redirects). Use `curl -fL` or `wget -O` to test downloads if needed.
+
+## [Unreleased] - 2026-01-19
+Keep future small fixes here.
 
 
 ## 2024-xx-xx - Previous Releases
