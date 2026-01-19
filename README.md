@@ -19,6 +19,22 @@ A professional Bash-based CLI tool to manage Waydroid sessions, automate ADB con
 - Python3 & pip (for `waydroid_script`)
 - Git (for cloning `waydroid_script`)
 
+### Full functionality (recommended packages)
+To enable all features in this manager (graphical dialogs, APK downloads, Wayland clipboard copy/paste), install the following packages on Debian/Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y waydroid weston adb zenity curl wget git python3 python3-pip wl-clipboard
+```
+
+- `wl-clipboard` provides `wl-copy`/`wl-paste` used by the Copy/Paste helper on Wayland sessions.
+- `zenity` enables graphical input dialogs (the script falls back to terminal input if not available).
+- `curl` or `wget` is required to download APKs from direct URLs.
+
+If you run an X11 session instead of Wayland, the copy/paste helper will attempt to use the X11 `DISPLAY`, but `wl-clipboard` is the recommended tool on Wayland.
+
+On systems without `apt` (Fedora/RHEL/Arch), install the equivalent packages via your distribution's package manager (e.g., `dnf`, `pacman`).
+
 ## Installation
 ```bash
 git clone https://github.com/Nigel1992/Waydroid-Advanced-Manager.git
