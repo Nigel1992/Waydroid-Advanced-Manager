@@ -1,41 +1,47 @@
-# Waydroid Advanced Manager
+# 🚀 Waydroid Advanced Manager
 
-A professional Bash-based CLI tool to manage Waydroid sessions, automate ADB connections via universal IP detection, and integrate the `waydroid_script` for GApps and Magisk.
+A beautiful, professional Bash-based CLI tool for managing Waydroid sessions, automating ADB connections, and integrating advanced Android features—all from your terminal.
 
-## Features
-- Universal IP Detection: Works regardless of your subnet.
-- One-Click Start: Launches Weston, detects Wayland displays, and starts the UI.
-- ADB Auto-Handshake: Pings the container and connects ADB automatically.
-- Script Integration: Built-in installer for `waydroid_script`.
-- APK Installer: GUI-based file picker and URL installer for Android apps.
-- Graphical uninstall-from-list (Zenity).
-- Copy/Paste helper to copy host clipboard for pasting inside Android.
+---
 
-## Requirements
-- Waydroid installed (`sudo apt install waydroid`)
-- Weston (`sudo apt install weston`)
-- Zenity (optional, for GUI prompts)
-- ADB (`sudo apt install adb`)
-- Python3 & pip (for `waydroid_script`)
-- Git (for cloning `waydroid_script`)
+## ✨ Features
 
-### Full functionality (recommended packages)
-To enable all features in this manager (graphical dialogs, APK downloads, Wayland clipboard copy/paste), install the following packages on Debian/Ubuntu:
+- **Universal IP Detection**: Seamlessly connects to Waydroid on any subnet.
+- **One-Click Start**: Launches Weston, detects Wayland displays, and starts the Android UI.
+- **ADB Auto-Handshake**: Pings the container and connects ADB automatically.
+- **Script Integration**: Built-in installer for [`waydroid_script`](https://github.com/casualsnek/waydroid_script) (GApps, Magisk, etc).
+- **APK Installer**: GUI-based file picker and URL installer for Android apps.
+- **Graphical Uninstall**: Zenity-powered uninstall-from-list (optional).
+- **Copy/Paste Helper**: Send plain text from your terminal directly into Android input fields (see below).
+- **Display Tweaks**: Change resolution, density, and reset display settings.
+- **Robust Safety Checks**: Ensures Waydroid is running before critical actions.
 
+---
+
+## 🖥️ Requirements
+
+- **Waydroid** (`sudo apt install waydroid`)
+- **Weston** (`sudo apt install weston`)
+- **ADB** (`sudo apt install adb`)
+- **Python3 & pip** (for `waydroid_script`)
+- **Git** (for cloning `waydroid_script`)
+- **Zenity** (optional, for GUI dialogs)
+- **wl-clipboard** (optional, for Wayland clipboard integration)
+
+### Recommended (Debian/Ubuntu):
 ```bash
 sudo apt update
 sudo apt install -y waydroid weston adb zenity curl wget git python3 python3-pip wl-clipboard
 ```
+- `wl-clipboard` provides `wl-copy`/`wl-paste` (Wayland clipboard integration).
+- `zenity` enables graphical dialogs (script falls back to terminal input if not available).
+- `curl` or `wget` is required for APK downloads from URLs.
 
-- `wl-clipboard` provides `wl-copy`/`wl-paste` used by the Copy/Paste helper on Wayland sessions.
-- `zenity` enables graphical input dialogs (the script falls back to terminal input if not available).
-- `curl` or `wget` is required to download APKs from direct URLs.
+For Fedora/Arch/other: install the equivalent packages via your distro's package manager.
 
-If you run an X11 session instead of Wayland, the copy/paste helper will attempt to use the X11 `DISPLAY`, but `wl-clipboard` is the recommended tool on Wayland.
+---
 
-On systems without `apt` (Fedora/RHEL/Arch), install the equivalent packages via your distribution's package manager (e.g., `dnf`, `pacman`).
-
-## Installation
+## ⚡ Installation
 ```bash
 git clone https://github.com/Nigel1992/Waydroid-Advanced-Manager.git
 cd Waydroid-Advanced-Manager
@@ -43,17 +49,45 @@ chmod +x waydroid-manager.sh
 ./waydroid-manager.sh
 ```
 
-## Recent Changes (2026-01-19)
-- Improved CLI layout and status header.
-- Added graphical uninstall-from-list and APK-from-URL installer.
-- Added display reset option and stricter Waydroid-running checks.
-- Added `copy_paste_to_android` helper for easy pasting into Android.
- - Main menu now enforces Waydroid running for critical actions and provides guidance to start it (option 1).
- - APK-from-URL now validates downloads and provides curl/wget fallback.
- - `copy_paste_to_android` uses `wl-copy` on Wayland (auto-detects `WAYLAND_DISPLAY` or falls back to `DISPLAY`), with Zenity/terminal input fallbacks.
- - Added `Reset Display Settings` to restore default size and density.
- - Several usability and input fallbacks added (Zenity -> terminal).
+---
 
-Changes between commit `3553f3a` and current HEAD are summarized in `CHANGELOG.md`.
+## 📝 Usage Highlights
 
-See `CHANGELOG.md` for full details.
+### Main Menu
+- Start/Restart Waydroid stack
+- Stop all services
+- Install APKs (file picker or URL)
+- Run advanced scripts (GApps, Magisk, etc)
+- List and manage installed apps
+- Change display settings (resolution, density)
+- **Copy/Paste to Android** (Option 9)
+
+### 🚦 Copy/Paste to Android (Option 9)
+- **Terminal-only, plain text only.**
+- You will be prompted to enter the text you want to send.
+- **Important:** Before entering your text, open and focus the input field (keyboard or text box) in your Android environment. The script will type your text into the currently active input box.
+- ⚠️ *Only plain text is supported. Files or non-text data will not work.*
+
+---
+
+## 🆕 Recent Changes (2026-01-25)
+- Option 9 (Copy/Paste to Android) is now terminal-only, accepts only plain text, and provides clear user instructions.
+- Removed all GUI/Zenity prompts from the copy/paste flow for a more reliable terminal experience.
+- See `CHANGELOG.md` for full details.
+
+---
+
+## 📖 See Also
+- [CHANGELOG.md](CHANGELOG.md) — Full change history and details.
+- [`waydroid_script`](https://github.com/casualsnek/waydroid_script) — For advanced Android modding inside Waydroid.
+
+---
+
+## 💡 Tips
+- If you encounter issues, ensure all dependencies are installed and Waydroid is running.
+- For best results, run from a desktop session (not SSH or TTY-only).
+- The script will guide you if a required tool is missing or if Waydroid is not running.
+
+---
+
+> Made with ❤️ for the Waydroid community.
