@@ -163,28 +163,10 @@ install_apk() {
 copy_paste_to_android() {
     print_header
     local text
-    # Prefer graphical input if available, but gracefully fall back
-    # Try graphical input (zenity) with environment fallbacks, else terminal input
-    if command -v zenity >/dev/null 2>&1; then
-        # Attempt to set Wayland/X11 display envs if missing
-        if [ -z "$WAYLAND_DISPLAY" ]; then
-            wd=$(ls /run/user/$(id -u)/wayland-* 2>/dev/null | head -n1 | xargs -n1 basename 2>/dev/null || true)
-            [ -n "$wd" ] && export WAYLAND_DISPLAY="$wd"
-        fi
-        if [ -z "$DISPLAY" ]; then
-            [ -e /tmp/.X11-unix/X0 ] && export DISPLAY=":0"
-        fi
-
-        text=$(WAYLAND_DISPLAY="$WAYLAND_DISPLAY" DISPLAY="$DISPLAY" zenity --entry --title="Copy to Android Clipboard" --text="Enter text to copy to Android. After copying, long-press in Android input and choose Paste." --width=600 2>/dev/null)
-        status=$?
-        if [ $status -ne 0 ] || [ -z "$text" ]; then
-            echo "\n(Fallback) Enter text to copy to Android (end with ENTER):"
-            read -r text
-        fi
-    else
-        echo "Enter text to copy to Android (end with ENTER):"
-        read -r text
-    fi
+    echo -e "${YELLOW}Before continuing:${NC} Please make sure the input field (keyboard or text box) is open and focused in your Android environment. The text will be typed automatically into the currently active input box."
+    echo -e "\n${CYAN}Only plain text is supported. Do not enter files or non-text data.${NC}"
+    echo "Enter the text you want to send to Android (then press ENTER):"
+    read -r text
 
     if [ -z "$text" ]; then
         print_status "Cancelled"
@@ -192,25 +174,25 @@ copy_paste_to_android() {
         return
     fi
 
-    if ! command -v wl-copy >/dev/null 2>&1; then
-        print_error "wl-copy not found. Install wl-clipboard to use this feature."
-        read -n 1 -p "Press any key..."
-        return
+    # Ensure ADB connection
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        print_status "Establishing ADB connection..."
+        wait_and_connect_adb $(get_waydroid_ip) || {
+            print_error "Failed to connect to ADB. Please try again."
+            sleep 2
+            return
+        }
     fi
 
-    # Ensure WAYLAND_DISPLAY is set for wl-copy; prefer existing env or auto-detect
-    if [ -z "$WAYLAND_DISPLAY" ]; then
-        wd=$(ls /run/user/$(id -u)/wayland-* 2>/dev/null | head -n1 | xargs -n1 basename 2>/dev/null || true)
-        if [ -n "$wd" ]; then
-            export WAYLAND_DISPLAY="$wd"
-        fi
-    fi
+    # Escape text for adb shell input (replace spaces with %s, escape special chars)
+    local safe_text
+    safe_text=$(echo "$text" | sed 's/ /%s/g; s/"/\\"/g')
 
-    echo -n "$text" | WAYLAND_DISPLAY="$WAYLAND_DISPLAY" wl-copy
-
-    print_success "Text copied to host Wayland clipboard."
-    echo "Long-press inside your Android app's input field and choose Paste to insert the text."
-    read -n 1 -p "Press any key..."
+    print_status "Sending text to Android via ADB..."
+    adb -s "${CONNECTED_DEVICES[0]}" shell input text "$safe_text"
+    print_success "Text sent to Android device."
+    echo "Check the currently focused input field in your Android environment."
+    read -n 1 -p "Press any key to return to menu..."
 }
 
 # Uninstall Apps Menu

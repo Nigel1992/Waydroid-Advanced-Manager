@@ -1,6 +1,16 @@
+
 # Changelog
 
 All notable changes to this project are documented here.
+
+## 2026-01-25
+
+### Changed
+- Option 9 (Copy/Paste to Android) now only accepts plain text input from the terminal. The script clearly instructs users to open and focus the input field on Android before sending text, and warns that only plain text is supported (files or non-text data will not work).
+- Removed all GUI/Zenity prompts from the copy/paste flow for a more reliable terminal-only experience.
+
+### Notes
+- This update improves clarity and reliability for users who need to send text to Android via ADB, especially in non-GUI environments.
 
 ## (2026-01-19)
 
