@@ -70,9 +70,11 @@ chmod +x waydroid-manager.sh
 
 ---
 
-## 🆕 Recent Changes (2026-01-25)
-- Option 9 (Copy/Paste to Android) is now terminal-only, accepts only plain text, and provides clear user instructions.
-- Removed all GUI/Zenity prompts from the copy/paste flow for a more reliable terminal experience.
+
+## 🆕 Recent Changes (2026-01-29)
+- Restart logic is now robust: Weston and the Wayland socket are properly stopped and started, ensuring reliable relaunch of the UI.
+- Weston is always launched with the X11 backend, fixing fatal errors when running under X11 sessions.
+- If Weston fails to start, the script logs and displays the error output for easier debugging.
 - See `CHANGELOG.md` for full details.
 
 ---
