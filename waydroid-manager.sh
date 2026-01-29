@@ -85,22 +85,59 @@ restart_waydroid() {
     print_status "Restarting Waydroid Stack..."
     waydroid session stop 2>/dev/null
     pkill -f weston 2>/dev/null
-    sleep 2
+    # Wait for Weston to fully stop and socket to disappear
+    for i in {1..10}; do
+        if ! pgrep -f weston >/dev/null 2>&1 && [ ! -e "/run/user/$UID/wayland-0" ]; then
+            break
+        fi
+        sleep 0.5
+    done
     sudo systemctl restart waydroid-container.service
-    
+
     print_status "Launching Weston & UI..."
-    weston >/dev/null 2>&1 &
-    sleep 3
-    WAYLAND_DISPLAY=$(ls /run/user/$UID/wayland-* 2>/dev/null | head -n1 | xargs -n1 basename)
-    export WAYLAND_DISPLAY
+    WESTON_LOG="/tmp/weston-launch-$$.log"
+    weston --backend=x11-backend.so > "$WESTON_LOG" 2>&1 &
+
+    # Wait for Wayland socket to appear (max 10s)
+    WAYLAND_SOCKET=""
+    for i in {1..20}; do
+        _wd=$(ls -d /run/user/$UID/wayland-* 2>/dev/null | head -n1 || true)
+        if [ -n "$_wd" ]; then
+            WAYLAND_SOCKET="$_wd"
+            break
+        fi
+        sleep 0.5
+    done
+    if [ -n "$WAYLAND_SOCKET" ]; then
+        WAYLAND_DISPLAY=$(basename "$WAYLAND_SOCKET")
+        export WAYLAND_DISPLAY
+        print_success "Wayland socket found: $WAYLAND_DISPLAY"
+    else
+        print_error "No Wayland socket found after starting Weston. UI will not launch."
+        print_error "Weston log output:"
+        cat "$WESTON_LOG"
+        print_status "Try running 'weston' manually in another terminal to debug."
+        unset WAYLAND_DISPLAY
+        read -n 1 -p "Press any key to return to menu..."
+        return
+    fi
+
     waydroid show-full-ui >/dev/null 2>&1 &
 
     local W_IP=""
-    for i in {1..15}; do
+    print_status "Waiting for Waydroid to provide a valid IP address..."
+    for i in {1..30}; do
         W_IP=$(get_waydroid_ip)
-        [ -n "$W_IP" ] && [[ "$W_IP" =~ ^[0-9] ]] && break
+        if [ -n "$W_IP" ] && [[ "$W_IP" =~ ^[0-9] ]]; then
+            break
+        fi
         sleep 1
     done
+    if [ -z "$W_IP" ] || [[ ! "$W_IP" =~ ^[0-9] ]]; then
+        print_error "Waydroid did not provide a valid IP address after restart. Please check the container status."
+        read -n 1 -p "Press any key to return to menu..."
+        return
+    fi
     wait_and_connect_adb "$W_IP"
     read -n 1 -p "Done. Press any key..."
 }

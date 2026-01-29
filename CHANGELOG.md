@@ -1,3 +1,12 @@
+# 2026-01-29
+
+### Fixed
+- Restart logic now robustly handles Weston and Wayland socket lifecycle, ensuring clean shutdown and startup.
+- Weston is now always launched with the X11 backend (`--backend=x11-backend.so`), fixing fatal errors when running under X11 sessions.
+- Improved error reporting: if Weston fails to start, the script logs and displays the error output for easier debugging.
+
+### Notes
+- These changes resolve issues where the UI would not relaunch after a restart, and provide clear diagnostics if Weston or the Wayland socket fails.
 
 # Changelog
 
