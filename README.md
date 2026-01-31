@@ -70,5 +70,3 @@ See the `LICENSE` file in this repository.
 ---
 
 > Built with care for the Waydroid community 💙  
-
-_Prefer a different badge style or extra screenshots/examples? I can add them._
