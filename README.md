@@ -68,6 +68,9 @@ chmod +x waydroid-manager.sh
 - **Important:** Before entering your text, open and focus the input field (keyboard or text box) in your Android environment. The script will type your text into the currently active input box.
 - ⚠️ *Only plain text is supported. Files or non-text data will not work.*
 
+
+- CLI: run `./waydroid-manager.sh --version` or `./waydroid-manager.sh -v` to print the script version and release date and exit.
+
 ---
 
 

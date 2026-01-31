@@ -6,6 +6,7 @@
 
 ### Added
 - UI header now displays the script version and release date for easier identification when running the manager.
+- CLI: `--version` / `-v` support to print the script `VERSION` and release date and exit. A `VERSION` file is included in the repository for explicit versioning.
 
 # 2026-01-29
 
