@@ -221,9 +221,22 @@ copy_paste_to_android() {
         }
     fi
 
-    # Escape text for adb shell input (replace spaces with %s, escape special chars)
+    # Escape text for adb shell input (replace spaces with %s, escape shell metacharacters so chars like &, |, ; are sent correctly)
     local safe_text
-    safe_text=$(echo "$text" | sed 's/ /%s/g; s/"/\\"/g')
+    # Escape backslashes first to avoid clobbering
+    safe_text=${text//\\/\\\\}
+    # Replace spaces with %s for `input text`
+    safe_text=${safe_text// /%s}
+    # Escape characters that the remote shell would interpret
+    safe_text=${safe_text//"/\\"}
+    safe_text=${safe_text//&/\\&}
+    safe_text=${safe_text//|/\\|}
+    safe_text=${safe_text//;/\\;}
+    safe_text=${safe_text//</\\<}
+    safe_text=${safe_text//>/\\>}
+    safe_text=${safe_text//\$/\\\$}
+    safe_text=${safe_text//\`/\\\`}
+
 
     print_status "Sending text to Android via ADB..."
     adb -s "${CONNECTED_DEVICES[0]}" shell input text "$safe_text"
