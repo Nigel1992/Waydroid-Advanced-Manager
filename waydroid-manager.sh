@@ -57,6 +57,18 @@ print_header() {
     echo -e "==================================================${NC}"
 }
 
+# CLI: --version / --help support
+if [ "${1:-}" = "--version" ] || [ "${1:-}" = "-v" ]; then
+    echo "$(get_version) ($(get_release_date))"
+    exit 0
+fi
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    echo "Waydroid Advanced Manager"
+    echo "Usage: $0 [--version|-v] [--help|-h]"
+    echo "Runs the interactive Waydroid manager. See README.md for details."
+    exit 0
+fi
+
 print_status() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
