@@ -1,47 +1,40 @@
-# 🚀 Waydroid Advanced Manager
+# 🚀 Waydroid Advanced Manager  
 
-A beautiful, professional Bash-based CLI tool for managing Waydroid sessions, automating ADB connections, and integrating advanced Android features—all from your terminal.
+[![version](https://img.shields.io/github/v/tag/Nigel1992/Waydroid-Advanced-Manager?label=version&style=flat-square)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/releases)
+[![license](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=flat-square)](LICENSE)
 
----
-
-## ✨ Features
-
-- **Universal IP Detection**: Seamlessly connects to Waydroid on any subnet.
-- **One-Click Start**: Launches Weston, detects Wayland displays, and starts the Android UI.
-- **ADB Auto-Handshake**: Pings the container and connects ADB automatically.
-- **Script Integration**: Built-in installer for [`waydroid_script`](https://github.com/casualsnek/waydroid_script) (GApps, Magisk, etc).
-- **APK Installer**: GUI-based file picker and URL installer for Android apps.
-- **Graphical Uninstall**: Zenity-powered uninstall-from-list (optional).
-- **Copy/Paste Helper**: Send plain text from your terminal directly into Android input fields (see below).
-- **Display Tweaks**: Change resolution, density, and reset display settings.
-- **Robust Safety Checks**: Ensures Waydroid is running before critical actions.
+A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid and Weston, manage ADB connections, install APKs, and send clipboard text into Android — all from your terminal with helpful prompts and safety checks.
 
 ---
 
-## 🖥️ Requirements
+## ✨ Highlights & Features
 
-- **Waydroid** (`sudo apt install waydroid`)
-- **Weston** (`sudo apt install weston`)
-- **ADB** (`sudo apt install adb`)
-- **Python3 & pip** (for `waydroid_script`)
-- **Git** (for cloning `waydroid_script`)
-- **Zenity** (optional, for GUI dialogs)
-- **wl-clipboard** (optional, for Wayland clipboard integration)
+- ✅ Start/Restart Waydroid stack and Weston with automatic Wayland socket detection
+- ✅ ADB auto-handshake and reconnect logic for reliable operations
+- ✅ Install APKs from local files or direct URLs (curl/wget)
+- ✅ Zenity integration for optional graphical dialogs (uninstall/installer)
+- ✅ Copy/Paste helper (Option 9) — sends terminal text into Android input fields; special characters supported
+- ✅ Change display resolution & density; reset to defaults
+- ✅ CLI flags: `--version` / `-v` and `--help` / `-h`
 
-### Recommended (Debian/Ubuntu):
+---
+
+## 🔧 Requirements
+
+- Waydroid, Weston, ADB, Python3, Git
+- Optional: `zenity` (GUI dialogs), `wl-clipboard` (`wl-copy` / `wl-paste` for Wayland)
+
+Quick install (Debian/Ubuntu):
+
 ```bash
 sudo apt update
 sudo apt install -y waydroid weston adb zenity curl wget git python3 python3-pip wl-clipboard
 ```
-- `wl-clipboard` provides `wl-copy`/`wl-paste` (Wayland clipboard integration).
-- `zenity` enables graphical dialogs (script falls back to terminal input if not available).
-- `curl` or `wget` is required for APK downloads from URLs.
-
-For Fedora/Arch/other: install the equivalent packages via your distro's package manager.
 
 ---
 
-## ⚡ Installation
+## 🚀 Quick Start
+
 ```bash
 git clone https://github.com/Nigel1992/Waydroid-Advanced-Manager.git
 cd Waydroid-Advanced-Manager
@@ -49,50 +42,33 @@ chmod +x waydroid-manager.sh
 ./waydroid-manager.sh
 ```
 
----
-
-## 📝 Usage Highlights
-
-### Main Menu
-- Start/Restart Waydroid stack
-- Stop all services
-- Install APKs (file picker or URL)
-- Run advanced scripts (GApps, Magisk, etc)
-- List and manage installed apps
-- Change display settings (resolution, density)
-- **Copy/Paste to Android** (Option 9)
-
-### 🚦 Copy/Paste to Android (Option 9)
-- **Terminal-only, plain text only. Special characters (e.g. &, |, ;, <, >, $) are supported.**
-- You will be prompted to enter the text you want to send.
-- **Important:** Before entering your text, open and focus the input field (keyboard or text box) in your Android environment. The script will type your text into the currently active input box.
-- ⚠️ *Only plain text is supported. Files or non-text data will not work.*
-
-
-- CLI: run `./waydroid-manager.sh --version` or `./waydroid-manager.sh -v` to print the script version and release date and exit.
+Tip: run `./waydroid-manager.sh --version` to print the bundled version and release date.
 
 ---
 
+## 📋 Copy/Paste to Android (Option 9) — Important Notes
 
-## 🆕 Recent Changes (2026-01-29)
-- Restart logic is now robust: Weston and the Wayland socket are properly stopped and started, ensuring reliable relaunch of the UI.
-- Weston is always launched with the X11 backend, fixing fatal errors when running under X11 sessions.
-- If Weston fails to start, the script logs and displays the error output for easier debugging.
-- See `CHANGELOG.md` for full details.
-
----
-
-## 📖 See Also
-- [CHANGELOG.md](CHANGELOG.md) — Full change history and details.
-- [`waydroid_script`](https://github.com/casualsnek/waydroid_script) — For advanced Android modding inside Waydroid.
+- Usage: focus the input field inside Android, select Option 9, type or paste text into your terminal and press ENTER. The script automatically sends the text to the currently active input box in Android.
+- Supported: All plain text including special characters (e.g. `& | ; < > $ \` `). Newlines are not yet supported (single-line only).
+- Safety: The tool only accepts plain text — files or binary data are not supported.
 
 ---
 
-## 💡 Tips
-- If you encounter issues, ensure all dependencies are installed and Waydroid is running.
-- For best results, run from a desktop session (not SSH or TTY-only).
-- The script will guide you if a required tool is missing or if Waydroid is not running.
+## 🧾 Changelog & Releases
+See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.4.0** (2026-01-31).
 
 ---
 
-> Made with ❤️ for the Waydroid community.
+## 📣 Contributing
+Bug reports, PRs, and feature suggestions are welcome. Please open an issue with details and reproduction steps.
+
+---
+
+## 📜 License
+See the `LICENSE` file in this repository.
+
+---
+
+> Built with care for the Waydroid community 💙  
+
+_Prefer a different badge style or extra screenshots/examples? I can add them._
