@@ -18,12 +18,16 @@ SCRIPT_DIR="$HOME/waydroid_script"
 SCRIPT_PATH="$(readlink -f "$0")"
 SCRIPT_SELF_DIR="$(dirname "$SCRIPT_PATH")"
 
+# Embedded version (single source of truth inside script)
+SCRIPT_VERSION="0.4.0"
+
 get_version() {
-    # Prefer a VERSION file if present
-    if [ -f "$SCRIPT_SELF_DIR/VERSION" ]; then
-        cat "$SCRIPT_SELF_DIR/VERSION"
+    # Prefer embedded SCRIPT_VERSION
+    if [ -n "${SCRIPT_VERSION:-}" ]; then
+        echo "$SCRIPT_VERSION"
         return
     fi
+
     # Try git tags/describe
     if git -C "$SCRIPT_SELF_DIR" describe --tags --always >/dev/null 2>&1; then
         git -C "$SCRIPT_SELF_DIR" describe --tags --always 2>/dev/null
