@@ -14,10 +14,46 @@ CONNECTED_DEVICES=()
 SCRIPT_DIR="$HOME/waydroid_script"
 
 # UI Helpers
+# Determine script path for version/date detection
+SCRIPT_PATH="$(readlink -f "$0")"
+SCRIPT_SELF_DIR="$(dirname "$SCRIPT_PATH")"
+
+get_version() {
+    # Prefer a VERSION file if present
+    if [ -f "$SCRIPT_SELF_DIR/VERSION" ]; then
+        cat "$SCRIPT_SELF_DIR/VERSION"
+        return
+    fi
+    # Try git tags/describe
+    if git -C "$SCRIPT_SELF_DIR" describe --tags --always >/dev/null 2>&1; then
+        git -C "$SCRIPT_SELF_DIR" describe --tags --always 2>/dev/null
+        return
+    fi
+    # Fallback to commit short hash
+    if git -C "$SCRIPT_SELF_DIR" rev-parse --short HEAD >/dev/null 2>&1; then
+        git -C "$SCRIPT_SELF_DIR" rev-parse --short HEAD 2>/dev/null
+        return
+    fi
+    echo "dev"
+}
+
+get_release_date() {
+    # Prefer last git commit date
+    local d
+    d=$(git -C "$SCRIPT_SELF_DIR" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null || true)
+    if [ -n "$d" ]; then echo "$d"; return; fi
+    # Fallback to script file modification date
+    d=$(date -r "$SCRIPT_PATH" +%Y-%m-%d 2>/dev/null || true)
+    if [ -n "$d" ]; then echo "$d"; return; fi
+    echo "$(date +%Y-%m-%d)"
+}
+
 print_header() {
     clear
+    local version=$(get_version)
+    local release_date=$(get_release_date)
     echo -e "${CYAN}${BOLD}=================================================="
-    echo -e "           WAYDROID ADVANCED MANAGER"
+    echo -e "           WAYDROID ADVANCED MANAGER  ${YELLOW}v${version} ${NC}${CYAN}(${release_date})"
     echo -e "==================================================${NC}"
 }
 
