@@ -1,3 +1,9 @@
+# 2026-01-31
+
+### Fixed
+- Option 9 (Copy/Paste to Android): properly escape shell metacharacters (e.g. `&`, `|`, `;`, `<`, `>`, `$`, backticks and backslashes) so special characters are transmitted correctly to Android when using `input text`. Updated `README.md` to note that special characters are supported, and added guidance for testing.
+- Minor: Improved robustness of text escaping to avoid clobbering backslashes.
+
 # 2026-01-29
 
 ### Fixed

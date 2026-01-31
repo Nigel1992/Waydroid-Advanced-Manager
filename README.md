@@ -63,7 +63,7 @@ chmod +x waydroid-manager.sh
 - **Copy/Paste to Android** (Option 9)
 
 ### 🚦 Copy/Paste to Android (Option 9)
-- **Terminal-only, plain text only.**
+- **Terminal-only, plain text only. Special characters (e.g. &, |, ;, <, >, $) are supported.**
 - You will be prompted to enter the text you want to send.
 - **Important:** Before entering your text, open and focus the input field (keyboard or text box) in your Android environment. The script will type your text into the currently active input box.
 - ⚠️ *Only plain text is supported. Files or non-text data will not work.*
