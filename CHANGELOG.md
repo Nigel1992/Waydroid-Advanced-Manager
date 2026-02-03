@@ -1,3 +1,11 @@
+# 2026-02-03
+
+## Release v0.5.1
+- Added: Batch APK installer (`--install-apks-dir`) to install all `.apk` files from a directory (interactive + CLI).
+- Added: Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf` and an interactive theme chooser.
+- Added: Tablet and Ultra-wide resolution presets (1200x1920, 3440x1440).
+- Changed: Bumped script to **v0.5.1** and documented new CLI flags in `README.md`.
+
 # 2026-01-31
 
 ## Release v0.4.0

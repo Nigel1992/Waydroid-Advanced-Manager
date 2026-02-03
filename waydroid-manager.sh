@@ -12,6 +12,18 @@ NC='\033[0m'
 # ---------------- CONFIG ----------------
 CONNECTED_DEVICES=()
 SCRIPT_DIR="$HOME/waydroid_script"
+CONFIG_FILE="$HOME/.config/waydroid-manager.conf"
+LOG_DIR="$HOME/.cache/waydroid-manager"
+LOG_FILE="$LOG_DIR/waydroid-manager.log"
+DEBUG=0
+WESTON_PID=""
+WESTON_STARTED=0
+PREV_RESOLUTION=""
+PREV_DENSITY=""
+PREV_SETTINGS_SAVED=0
+DEFAULT_DPI=""
+DEFAULT_RESOLUTION=""
+THEME="light"  # persisted theme (light|dark) - can be overridden in ~/.config/waydroid-manager.conf
 
 # UI Helpers
 # Determine script path for version/date detection
@@ -19,7 +31,41 @@ SCRIPT_PATH="$(readlink -f "$0")"
 SCRIPT_SELF_DIR="$(dirname "$SCRIPT_PATH")"
 
 # Embedded version (single source of truth inside script)
-SCRIPT_VERSION="0.4.0"
+SCRIPT_VERSION="0.5.1"
+RELEASE_DATE="2026-02-03"
+
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        # shellcheck disable=SC1090
+        . "$CONFIG_FILE"
+    fi
+    LOG_DIR="${LOG_DIR:-$HOME/.cache/waydroid-manager}"
+    LOG_FILE="${LOG_FILE:-$LOG_DIR/waydroid-manager.log}"
+    SCRIPT_DIR="${SCRIPT_DIR:-$HOME/waydroid_script}"
+}
+
+ensure_log_dir() {
+    mkdir -p "$LOG_DIR"
+}
+
+rotate_logs() {
+    if [ -f "$LOG_FILE" ]; then
+        local size
+        size=$(stat -c %s "$LOG_FILE" 2>/dev/null || echo 0)
+        if [ "$size" -gt 1048576 ]; then
+            mv -f "$LOG_FILE" "${LOG_FILE}.1" 2>/dev/null || true
+        fi
+    fi
+}
+
+log_line() {
+    local level="$1"
+    shift
+    local msg="$*"
+    local ts
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$ts] [$level] $msg" >> "$LOG_FILE"
+}
 
 get_version() {
     # Prefer embedded SCRIPT_VERSION
@@ -42,6 +88,11 @@ get_version() {
 }
 
 get_release_date() {
+    # Prefer embedded RELEASE_DATE
+    if [ -n "${RELEASE_DATE:-}" ]; then
+        echo "$RELEASE_DATE"
+        return
+    fi
     # Prefer last git commit date
     local d
     d=$(git -C "$SCRIPT_SELF_DIR" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null || true)
@@ -61,27 +112,167 @@ print_header() {
     echo -e "==================================================${NC}"
 }
 
-# CLI: --version / --help support
-if [ "${1:-}" = "--version" ] || [ "${1:-}" = "-v" ]; then
-    echo "$(get_version) ($(get_release_date))"
-    exit 0
-fi
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "Waydroid Advanced Manager"
-    echo "Usage: $0 [--version|-v] [--help|-h]"
-    echo "Runs the interactive Waydroid manager. See README.md for details."
-    exit 0
-fi
+show_help() {
+    cat <<EOF
+Waydroid Advanced Manager
+Usage: $0 [options]
 
-print_status() { echo -e "${BLUE}[INFO]${NC} $1"; }
-print_success() { echo -e "${GREEN}[OK]${NC} $1"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+Options:
+  --version, -v                Show version and exit
+  --help, -h                   Show this help and exit
+  --debug                      Enable debug logging
+  --restart                    Restart Waydroid stack
+  --stop                       Stop Waydroid and Weston
+  --status                     Show system status
+  --install-apk <path|url>     Install APK from file or URL
+  --install-apks-dir <dir>     Install all APKs from a directory
+  --set-dpi <dpi>              Set display density
+  --set-res <WxH>              Set display resolution
+  --list-apps-export [file]    Export installed apps list
+  --theme <dark|light>         Set and persist terminal theme (light or dark)
+  --self-update                Update script from git
+EOF
+}
+
+parse_args() {
+    local action_taken=0
+    local deps_checked=0
+    ensure_deps() {
+        if [ "$deps_checked" -eq 0 ]; then
+            check_dependencies || exit 1
+            deps_checked=1
+        fi
+    }
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --version|-v)
+                echo "$(get_version) ($(get_release_date))"
+                exit 0
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            --debug)
+                DEBUG=1
+                ;;
+            --restart)
+                ensure_deps
+                restart_waydroid
+                action_taken=1
+                ;;
+            --stop)
+                ensure_deps
+                stop_waydroid
+                action_taken=1
+                ;;
+            --status)
+                ensure_deps
+                show_status
+                action_taken=1
+                ;;
+            --install-apk)
+                shift
+                ensure_deps
+                install_apk_cli "$1"
+                action_taken=1
+                ;;
+            --set-dpi)
+                shift
+                ensure_deps
+                apply_density "$1"
+                action_taken=1
+                ;;
+            --set-res)
+                shift
+                if [[ "$1" =~ ^[0-9]+x[0-9]+$ ]]; then
+                    local w=${1%x*}
+                    local h=${1#*x}
+                    ensure_deps
+                    apply_resolution "$w" "$h"
+                    action_taken=1
+                else
+                    print_error "Invalid resolution format. Use WxH (e.g., 1080x2340)."
+                    exit 1
+                fi
+                ;;
+            --list-apps-export)
+                shift
+                ensure_deps
+                export_installed_apps "$1"
+                action_taken=1
+                ;;
+            --install-apks-dir)
+                shift
+                ensure_deps
+                install_apks_dir_cli "$1"
+                action_taken=1
+                ;;
+            --theme)
+                shift
+                set_theme_cli "$1"
+                action_taken=1
+                ;;
+            --self-update)
+                ensure_deps
+                self_update
+                action_taken=1
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+        shift
+    done
+
+    if [ "$action_taken" -eq 1 ]; then
+        exit 0
+    fi
+}
+
+print_status() { echo -e "${BLUE}[INFO]${NC} $1"; log_line "INFO" "$1"; }
+print_success() { echo -e "${GREEN}[OK]${NC} $1"; log_line "OK" "$1"; }
+print_error() { echo -e "${RED}[ERROR]${NC} $1"; log_line "ERROR" "$1"; }
+
+check_dependencies() {
+    local missing=()
+    local required=(waydroid adb zenity git weston ping awk grep sed date)
+    for cmd in "${required[@]}"; do
+        command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+    done
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+        missing+=("curl/wget")
+    fi
+    if [ ${#missing[@]} -gt 0 ]; then
+        print_error "Missing dependencies: ${missing[*]}"
+        print_status "Install them and re-run the script."
+        return 1
+    fi
+    return 0
+}
+
+cleanup() {
+    if [ -n "${CONNECTED_DEVICES[*]}" ]; then
+        adb disconnect >/dev/null 2>&1 || true
+    fi
+    if [ "$WESTON_STARTED" -eq 1 ] && [ -n "$WESTON_PID" ]; then
+        kill "$WESTON_PID" >/dev/null 2>&1 || true
+    fi
+}
+trap cleanup EXIT
 
 # ---------------- LOGIC ----------------
 
 get_waydroid_ip() {
     local ip=$(waydroid status 2>/dev/null | grep -i "^IP" | awk '{print $NF}')
     echo "$ip"
+}
+
+adb_device_connected() {
+    local target="$1"
+    adb devices 2>/dev/null | awk 'NR>1 {print $1}' | grep -x "$target" >/dev/null 2>&1
 }
 
 wait_and_connect_adb() {
@@ -102,8 +293,68 @@ wait_and_connect_adb() {
 
     echo -e "\n"
     print_success "Network active. Establishing ADB handshake..."
-    adb connect "$target_ip:5555" >/dev/null 2>&1
-    CONNECTED_DEVICES=("$target_ip:5555")
+    local device="$target_ip:5555"
+    local tries=0
+    while [ $tries -lt 3 ]; do
+        adb connect "$device" >/dev/null 2>&1
+        sleep 1
+        if adb_device_connected "$device"; then
+            CONNECTED_DEVICES=("$device")
+            return 0
+        fi
+        ((tries++))
+    done
+    print_error "ADB connection failed."
+    return 1
+}
+
+snapshot_display_settings() {
+    if [ "$PREV_SETTINGS_SAVED" -eq 1 ]; then
+        return
+    fi
+    PREV_RESOLUTION=$(adb -s "${CONNECTED_DEVICES[0]}" shell wm size 2>/dev/null | grep -oP '\d+x\d+' | head -1 || true)
+    PREV_DENSITY=$(adb -s "${CONNECTED_DEVICES[0]}" shell wm density 2>/dev/null | grep -oP '\d+' | head -1 || true)
+    if [ -n "$PREV_RESOLUTION" ] || [ -n "$PREV_DENSITY" ]; then
+        PREV_SETTINGS_SAVED=1
+    fi
+}
+
+restore_previous_display_settings() {
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+    if [ "$PREV_SETTINGS_SAVED" -ne 1 ]; then
+        print_error "No previous display settings saved in this session."
+        sleep 2
+        return
+    fi
+    print_status "Restoring previous display settings..."
+    if [ -n "$PREV_RESOLUTION" ]; then
+        adb -s "${CONNECTED_DEVICES[0]}" shell wm size "$PREV_RESOLUTION" 2>/dev/null
+    fi
+    if [ -n "$PREV_DENSITY" ]; then
+        adb -s "${CONNECTED_DEVICES[0]}" shell wm density "$PREV_DENSITY" 2>/dev/null
+    fi
+    print_success "Previous settings restored."
+    sleep 2
+}
+
+show_status() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ STATUS ━━━${NC}\n"
+    echo -e "${CYAN}Waydroid status:${NC} $(waydroid status 2>/dev/null | grep -o 'RUNNING\|STOPPED' || echo UNKNOWN)"
+    echo -e "${CYAN}Waydroid IP:${NC} $(get_waydroid_ip)"
+    echo -e "${CYAN}ADB devices:${NC} $(adb devices | awk 'NR>1 && $1!="" {print $1}' | wc -l)"
+    echo -e "${CYAN}Weston PID:${NC} ${WESTON_PID:-N/A}"
+    if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
+        local res
+        local den
+        res=$(adb -s "${CONNECTED_DEVICES[0]}" shell wm size 2>/dev/null | grep -oP '\d+x\d+' || echo "N/A")
+        den=$(adb -s "${CONNECTED_DEVICES[0]}" shell wm density 2>/dev/null | grep -oP '\d+' | head -1 || echo "N/A")
+        echo -e "${CYAN}Display:${NC} ${res} @ ${den} dpi"
+    fi
+    echo ""
+    read -n 1 -p "Press any key to return..."
 }
 
 # ---------------- ACTIONS ----------------
@@ -149,6 +400,8 @@ restart_waydroid() {
     print_status "Launching Weston & UI..."
     WESTON_LOG="/tmp/weston-launch-$$.log"
     weston --backend=x11-backend.so > "$WESTON_LOG" 2>&1 &
+    WESTON_PID=$!
+    WESTON_STARTED=1
 
     # Wait for Wayland socket to appear (max 10s)
     WAYLAND_SOCKET=""
@@ -201,6 +454,8 @@ stop_waydroid() {
     pkill -f weston 2>/dev/null
     adb disconnect >/dev/null 2>&1
     CONNECTED_DEVICES=()
+    WESTON_PID=""
+    WESTON_STARTED=0
     print_success "System halted."
     sleep 1.5
 }
@@ -211,7 +466,7 @@ install_apk() {
         wait_and_connect_adb $(get_waydroid_ip) || return
     fi
     local APK=""
-    local install_method=$(zenity --list --radiolist --title="APK Install Method" --text="Choose how to install the APK" --column="Select" --column="Method" TRUE "Select Local APK" FALSE "Install from URL" --height=200 --width=400 2>/dev/null)
+    local install_method=$(zenity --list --radiolist --title="APK Install Method" --text="Choose how to install the APK" --column="Select" --column="Method" TRUE "Select Local APK" FALSE "Install from URL" FALSE "Batch Install from Directory" --height=200 --width=400 2>/dev/null)
     if [ "$install_method" = "Select Local APK" ]; then
         APK=$(zenity --file-selection --title="Select APK" --file-filter="*.apk" 2>/dev/null)
         if [ -f "$APK" ]; then
@@ -244,8 +499,165 @@ install_apk() {
         else
             print_error "Invalid URL. Must end with .apk"
         fi
+    elif [ "$install_method" = "Batch Install from Directory" ]; then
+        local APK_DIR=$(zenity --file-selection --title="Select Directory with APKs" --directory 2>/dev/null)
+        if [ -d "$APK_DIR" ]; then
+            install_apks_dir_cli "$APK_DIR"
+        else
+            print_error "No directory selected or directory invalid."
+        fi
     fi
     read -n 1 -p "Press any key..."
+}
+
+install_apk_cli() {
+    local src="$1"
+    if [ -z "$src" ]; then
+        print_error "Missing APK path or URL."
+        exit 1
+    fi
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || exit 1
+    fi
+    if [[ "$src" =~ ^https?://.*\.apk$ ]]; then
+        local TMP_APK="/tmp/waydroid_apk_$$.apk"
+        print_status "Downloading APK..."
+        if command -v curl >/dev/null 2>&1; then
+            curl -L -o "$TMP_APK" "$src"
+        elif command -v wget >/dev/null 2>&1; then
+            wget -O "$TMP_APK" "$src"
+        else
+            print_error "curl or wget required to download APK."
+            exit 1
+        fi
+        if [ -f "$TMP_APK" ]; then
+            adb -s "${CONNECTED_DEVICES[0]}" install -r "$TMP_APK"
+            rm -f "$TMP_APK"
+        else
+            print_error "Failed to download APK."
+            exit 1
+        fi
+    else
+        if [ ! -f "$src" ]; then
+            print_error "APK file not found: $src"
+            exit 1
+        fi
+        adb -s "${CONNECTED_DEVICES[0]}" install -r "$src"
+    fi
+}
+
+self_update() {
+    print_header
+    if [ ! -d "$SCRIPT_SELF_DIR/.git" ]; then
+        print_error "Self-update requires a git clone of this script."
+        read -n 1 -p "Press any key to return..."
+        return
+    fi
+    print_status "Updating script from git..."
+    if git -C "$SCRIPT_SELF_DIR" pull --ff-only; then
+        print_success "Update complete."
+    else
+        print_error "Update failed."
+    fi
+    read -n 1 -p "Press any key to return..."
+}
+
+# Batch install all APKs in a directory (CLI-friendly)
+install_apks_dir_cli() {
+    local dir="$1"
+    if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+        print_error "Directory not found: $dir"
+        return 1
+    fi
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return 1
+    fi
+
+    local found=0
+    for apk in "$dir"/*.apk; do
+        [ -e "$apk" ] || continue
+        found=1
+        print_status "Installing $(basename "$apk")..."
+        adb -s "${CONNECTED_DEVICES[0]}" install -r "$apk" >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            print_success "Installed: $(basename "$apk")"
+        else
+            print_error "Failed: $(basename "$apk")"
+        fi
+        sleep 1
+    done
+    if [ $found -eq 0 ]; then
+        print_error "No .apk files found in $dir"
+        return 1
+    fi
+    return 0
+}
+
+# Apply terminal theme (colors)
+apply_theme() {
+    if [ "${THEME:-light}" = "dark" ]; then
+        RED='\033[1;31m'
+        GREEN='\033[1;32m'
+        BLUE='\033[1;34m'
+        CYAN='\033[1;36m'
+        YELLOW='\033[1;33m'
+        BOLD='\033[1m'
+        NC='\033[0m'
+    else
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        BLUE='\033[0;34m'
+        CYAN='\033[0;36m'
+        YELLOW='\033[1;33m'
+        BOLD='\033[1m'
+        NC='\033[0m'
+    fi
+}
+
+# Set theme and persist to config (CLI)
+set_theme_cli() {
+    local t="$1"
+    if [ -z "$t" ]; then
+        print_error "Missing theme. Use 'light' or 'dark'."
+        exit 1
+    fi
+    if [[ ! "$t" =~ ^(light|dark)$ ]]; then
+        print_error "Invalid theme: $t. Use 'light' or 'dark'."
+        exit 1
+    fi
+    THEME="$t"
+    apply_theme
+
+    mkdir -p "$(dirname "$CONFIG_FILE")"
+    if [ -f "$CONFIG_FILE" ]; then
+        if grep -q '^THEME=' "$CONFIG_FILE"; then
+            sed -i "s/^THEME=.*/THEME=\"$THEME\"/" "$CONFIG_FILE"
+        else
+            echo "THEME=\"$THEME\"" >> "$CONFIG_FILE"
+        fi
+    else
+        echo "THEME=\"$THEME\"" > "$CONFIG_FILE"
+    fi
+
+    print_success "Theme set to $THEME and saved to $CONFIG_FILE"
+}
+
+# Interactive theme chooser
+set_theme_interactive() {
+    local choice
+    if command -v zenity >/dev/null 2>&1; then
+        choice=$(zenity --list --radiolist --title="Select Theme" --text="Choose a terminal theme" --column="Select" --column="Theme" TRUE "light" FALSE "dark" --height=200 --width=300 2>/dev/null)
+        if [ -n "$choice" ]; then
+            set_theme_cli "$choice"
+            read -n 1 -p "Press any key to continue..."
+        fi
+    else
+        echo "Current theme: ${THEME:-light}"
+        read -p "Enter theme (light/dark): " choice
+        set_theme_cli "$choice"
+        read -n 1 -p "Press any key to continue..."
+    fi
 }
 
 # Copy/Paste to Android
@@ -332,9 +744,11 @@ uninstall_apps_menu() {
         echo -e "${CYAN}│${NC}  ${BOLD}1)${NC}  📋 List Installed Apps"
         echo -e "${CYAN}│${NC}  ${BOLD}2)${NC}  🗑 Uninstall App by Package Name"
         echo -e "${CYAN}│${NC}  ${BOLD}3)${NC}  🗑 Uninstall from List (Interactive)"
+        echo -e "${CYAN}│${NC}  ${BOLD}4)${NC}  🔎 Search + Uninstall (Partial Match)"
+        echo -e "${CYAN}│${NC}  ${BOLD}5)${NC}  💾 Export Installed Apps"
         echo -e "${CYAN}└${NC}${CYAN}──────────────────────────────────────────────────────────┘${NC}"
         echo ""
-        echo -e "${BOLD}${MAGENTA}4)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
+        echo -e "${BOLD}${MAGENTA}6)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
         echo -e "${CYAN}==================================================${NC}"
         echo ""
         
@@ -343,7 +757,9 @@ uninstall_apps_menu() {
             1) list_installed_apps ;;
             2) uninstall_by_package ;;
             3) uninstall_from_list ;;
-            4) break ;;
+            4) uninstall_by_search ;;
+            5) export_installed_apps "" ;;
+            6) break ;;
             *) echo -e "${RED}❌ Invalid selection.${NC}"; sleep 1 ;;
         esac
     done
@@ -468,6 +884,88 @@ uninstall_by_package() {
     fi
 }
 
+uninstall_by_search() {
+    if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        print_header
+        print_error "Waydroid is not running!"
+        echo ""
+        read -p "Start Waydroid now? (y/N): " start_choice
+        if [[ "$start_choice" =~ ^[Yy]$ ]]; then
+            restart_waydroid
+        else
+            print_status "Uninstalling apps requires Waydroid to be running."
+            sleep 2
+            return
+        fi
+    fi
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        print_error "Not connected to ADB. Attempting to reconnect..."
+        wait_and_connect_adb $(get_waydroid_ip) || {
+            print_error "Failed to connect"
+            sleep 2
+            return
+        }
+    fi
+
+    print_header
+    read -p "🔎 Enter part of package name to search: " query
+    if [ -z "$query" ]; then
+        print_error "Search query cannot be empty"
+        sleep 2
+        return
+    fi
+
+    local matches
+    matches=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | grep -i "$query" | sort)
+    if [ -z "$matches" ]; then
+        print_error "No packages matched '$query'"
+        sleep 2
+        return
+    fi
+
+    local selected_app
+    selected_app=$(echo -e "$matches" | zenity --list --title="Select App to Uninstall" --column="Package Name" --height=500 --width=600 2>/dev/null)
+    if [ -z "$selected_app" ]; then
+        print_status "Cancelled"
+        sleep 1
+        return
+    fi
+
+    zenity --question --title="Confirm Uninstall" --text="Uninstall $selected_app?" --width=400 2>/dev/null
+    if [ $? -eq 0 ]; then
+        print_status "Uninstalling ${BOLD}${selected_app}${NC}..."
+        local result
+        result=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm uninstall "$selected_app" 2>&1)
+        if echo "$result" | grep -q "Success"; then
+            print_success "✓ Successfully uninstalled ${BOLD}${selected_app}${NC}"
+        else
+            print_error "✗ Failed to uninstall ${BOLD}${selected_app}${NC}"
+            echo -e "${YELLOW}Response: $result${NC}"
+        fi
+        sleep 2
+    else
+        print_status "Uninstall cancelled"
+        sleep 1
+    fi
+}
+
+export_installed_apps() {
+    local out_file="$1"
+    if [ -z "$out_file" ]; then
+        out_file="$HOME/waydroid_apps_$(date +%Y%m%d).txt"
+    fi
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+    print_status "Exporting app list to $out_file"
+    adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | sort > "$out_file"
+    print_success "Export complete."
+    if [ -t 0 ]; then
+        read -n 1 -p "Press any key to continue..."
+    fi
+}
+
 # Uninstall from Interactive List
 uninstall_from_list() {
     # Check if Waydroid is running
@@ -585,6 +1083,7 @@ change_display_settings() {
         echo -e "${YELLOW}└${NC}${YELLOW}─────────────────────────────────────────────────────────┘${NC}"
         echo ""
         echo -e "${BOLD}${MAGENTA}8)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
+        echo -e "${BOLD}${MAGENTA}9)${NC}  ${MAGENTA}↩ Restore Previous Settings${NC}"
         echo -e "${CYAN}==================================================${NC}"
         echo ""
         read -p "Selection: " DISPLAY_CHOICE
@@ -594,6 +1093,10 @@ change_display_settings() {
             3) view_current_settings ;;
             4)
                 echo -e "${YELLOW}Resetting display size and density to default...${NC}"
+                if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+                    wait_and_connect_adb $(get_waydroid_ip) || continue
+                fi
+                snapshot_display_settings
                 sudo waydroid shell wm size reset
                 sudo waydroid shell wm density reset
                 echo -e "${GREEN}Display settings reset to default.${NC}"
@@ -603,6 +1106,7 @@ change_display_settings() {
             6) custom_density ;;
             7) custom_both ;;
             8) break ;;
+            9) restore_previous_display_settings ;;
             *) echo -e "${RED}❌ Invalid selection.${NC}"; sleep 1 ;;
         esac
     done
@@ -624,7 +1128,9 @@ preset_resolutions() {
     echo -e "${BLUE}│${NC}  ${BOLD}5)${NC}  🖥 1080 x 1920 (FHD Landscape)"
     echo -e "${BLUE}└${NC}${BLUE}─────────────────────────────────────────────────────────┘${NC}"
     echo ""
-    echo -e "${BOLD}${MAGENTA}6)${NC}  ${MAGENTA}↩ Back${NC}"
+    echo -e "${BOLD}${MAGENTA}6)${NC}  ${MAGENTA}↩ 1200 x 1920 (Tablet)${NC}"
+    echo -e "${BOLD}${MAGENTA}7)${NC}  ${MAGENTA}↩ 3440 x 1440 (Ultra-wide)${NC}"
+    echo -e "${BOLD}${MAGENTA}8)${NC}  ${MAGENTA}↩ Back${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     read -p "Selection: " RES_CHOICE
@@ -635,7 +1141,9 @@ preset_resolutions() {
         3) width=720; height=1520 ;;
         4) width=1080; height=1920 ;;
         5) width=1440; height=2560 ;;
-        6) return ;;
+        6) width=1200; height=1920 ;;
+        7) width=3440; height=1440 ;;
+        8) return ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1; return ;;
     esac
     
@@ -743,6 +1251,7 @@ apply_resolution() {
         wait_and_connect_adb $(get_waydroid_ip) || return
     fi
     
+    snapshot_display_settings
     echo -e "\n${BOLD}${CYAN}━━━ APPLYING RESOLUTION ━━━${NC}\n"
     print_status "Setting resolution to ${BOLD}${width}x${height}${NC}..."
     adb -s "${CONNECTED_DEVICES[0]}" shell wm size "${width}x${height}" 2>/dev/null
@@ -765,6 +1274,7 @@ apply_density() {
         wait_and_connect_adb $(get_waydroid_ip) || return
     fi
     
+    snapshot_display_settings
     echo -e "\n${BOLD}${CYAN}━━━ APPLYING DENSITY ━━━${NC}\n"
     print_status "Setting density to ${BOLD}${density} dpi${NC}..."
     adb -s "${CONNECTED_DEVICES[0]}" shell wm density "$density" 2>/dev/null
@@ -809,6 +1319,14 @@ view_current_settings() {
     read -n 1 -p "Press any key to return..."
 }
 
+load_config
+# Ensure theme colors are applied from config
+apply_theme
+ensure_log_dir
+rotate_logs
+parse_args "$@"
+check_dependencies || exit 1
+
 # ---------------- MAIN MENU ----------------
 while true; do
     print_header
@@ -821,7 +1339,10 @@ while true; do
     echo -e "  ${BOLD}7)${NC} ${GREEN}DISPLAY SETTINGS${NC} (Resolution, Density, etc.)"
     echo -e "  ${BOLD}8)${NC} ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
     echo -e "  ${BOLD}9)${NC} ${MAGENTA}COPY/PASTE${NC} to Android"
-    echo -e "  ${BOLD}10)${NC} ${YELLOW}EXIT${NC}"
+    echo -e "  ${BOLD}10)${NC} ${CYAN}STATUS${NC}"
+    echo -e "  ${BOLD}11)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
+    echo -e "  ${BOLD}12)${NC} ${MAGENTA}SELF UPDATE${NC}"
+    echo -e "  ${BOLD}13)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -914,7 +1435,9 @@ while true; do
                 read -n 1 -p "Press any key..."
             fi
             ;;
-        10) clear; exit 0 ;;
+        10) show_status ;;
+        11) self_update ;;
+        12) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
