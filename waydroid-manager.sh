@@ -210,7 +210,7 @@ parse_args() {
                 ;;
             --theme)
                 shift
-                set_theme_cli "$1"
+                set_theme_cli "$1" "no-pause"
                 action_taken=1
                 ;;
             --self-update)
@@ -346,6 +346,7 @@ show_status() {
     echo -e "${CYAN}Waydroid IP:${NC} $(get_waydroid_ip)"
     echo -e "${CYAN}ADB devices:${NC} $(adb devices | awk 'NR>1 && $1!="" {print $1}' | wc -l)"
     echo -e "${CYAN}Weston PID:${NC} ${WESTON_PID:-N/A}"
+    echo -e "${CYAN}Theme:${NC} ${THEME:-light}"
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
         local res
         local den
@@ -595,16 +596,11 @@ install_apks_dir_cli() {
 }
 
 # Apply terminal theme (colors)
+# NOTE: Per user request the label meanings are swapped:
+# Selecting THEME="dark" applies the light palette, and THEME="light" applies the darker/bold palette.
 apply_theme() {
     if [ "${THEME:-light}" = "dark" ]; then
-        RED='\033[1;31m'
-        GREEN='\033[1;32m'
-        BLUE='\033[1;34m'
-        CYAN='\033[1;36m'
-        YELLOW='\033[1;33m'
-        BOLD='\033[1m'
-        NC='\033[0m'
-    else
+        # Light palette (mapped to the 'dark' label)
         RED='\033[0;31m'
         GREEN='\033[0;32m'
         BLUE='\033[0;34m'
@@ -612,12 +608,24 @@ apply_theme() {
         YELLOW='\033[1;33m'
         BOLD='\033[1m'
         NC='\033[0m'
+    else
+        # Darker/bold palette (mapped to the 'light' label)
+        RED='\033[1;31m'
+        GREEN='\033[1;32m'
+        BLUE='\033[1;34m'
+        CYAN='\033[1;36m'
+        YELLOW='\033[1;33m'
+        BOLD='\033[1m'
+        NC='\033[0m'
     fi
 }
 
 # Set theme and persist to config (CLI)
+# Usage: set_theme_cli <light|dark> [no-pause]
+# If second arg is 'no-pause' the function will not block (useful for CLI flags)
 set_theme_cli() {
     local t="$1"
+    local no_pause="$2"
     if [ -z "$t" ]; then
         print_error "Missing theme. Use 'light' or 'dark'."
         exit 1
@@ -640,7 +648,21 @@ set_theme_cli() {
         echo "THEME=\"$THEME\"" > "$CONFIG_FILE"
     fi
 
+    # Show confirmation: prefer zenity if available, but do not block CLI calls
+    if command -v zenity >/dev/null 2>&1; then
+        if [ "${no_pause}" = "no-pause" ]; then
+            zenity --info --title="Theme Changed" --text="Theme set to $THEME and saved to $CONFIG_FILE" --width=300 2>/dev/null &
+        else
+            zenity --info --title="Theme Changed" --text="Theme set to $THEME and saved to $CONFIG_FILE" --width=300 2>/dev/null
+        fi
+    fi
+
     print_success "Theme set to $THEME and saved to $CONFIG_FILE"
+
+    # Pause only when called interactively (no_pause not provided)
+    if [ "${no_pause}" != "no-pause" ] && [ -t 0 ]; then
+        read -n 1 -p "Press any key to continue..."
+    fi
 }
 
 # Interactive theme chooser
