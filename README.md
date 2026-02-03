@@ -1,5 +1,6 @@
 # 🚀 Waydroid Advanced Manager  
 
+[![Join Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/6YzUFcKu6t)
 [![version](https://img.shields.io/github/v/tag/Nigel1992/Waydroid-Advanced-Manager?label=version&style=flat-square)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/releases)
 [![license](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=flat-square)](LICENSE)
 
