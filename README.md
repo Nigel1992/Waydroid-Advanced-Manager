@@ -18,11 +18,13 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 - ✅ Restore previous display settings (in-session)
 - ✅ App export, search + uninstall
 - ✅ Status view and self-update
-- ✅ Batch APK install from a directory (interactive + CLI)
+- ✅ Batch APK install from a directory (interactive + CLI), with per-APK logging and end summary
+- ✅ Batch uninstall from file or multi-select (interactive + CLI)
 - ✅ Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf`
+- ✅ Confirmations for destructive actions with `--yes/-y` override for automation
 - ✅ New tablet and ultra-wide resolution presets
 - ✅ CLI flags for non-interactive use
-- ✅ Logging to file (with rotation)
+- ✅ Install/uninstall logs separated and rotated, plus logging verbosity
 
 ---
 
@@ -62,8 +64,10 @@ Tip: run `./waydroid-manager.sh --version` to print the bundled version and rele
 --restart                    Restart Waydroid stack
 --stop                       Stop Waydroid and Weston
 --status                     Show system status
---install-apk <path|url>     Install APK from file or URL
---install-apks-dir <dir>     Install all APKs from a directory
+--install-apk <path|url>     Install APK from file or URL (supports Content-Length verification & sha256 logging)
+--install-apks-dir <dir>     Install all APKs from a directory (batch summary & logs)
+--uninstall-list <file>     Uninstall packages from a newline-delimited file
+--yes, -y                    Auto-confirm destructive actions (useful for scripting)
 --set-dpi <dpi>              Set display density
 --set-res <WxH>              Set display resolution
 --list-apps-export [file]    Export installed apps list
@@ -79,9 +83,11 @@ Logs are written to:
 
 ```
 ~/.cache/waydroid-manager/waydroid-manager.log
+~/.cache/waydroid-manager/install.log
+~/.cache/waydroid-manager/uninstall.log
 ```
 
-The log file is rotated when it exceeds 1 MB.
+Install and uninstall actions are logged separately (per-APK results and batch summaries). Log files are rotated when they exceed 1 MB.
 
 ---
 

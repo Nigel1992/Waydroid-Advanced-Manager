@@ -1,7 +1,11 @@
 # 2026-02-03
 
 ## Release v0.5.1
-- Added: Batch APK installer (`--install-apks-dir`) to install all `.apk` files from a directory (interactive + CLI).
+- Added: Batch APK installer (`--install-apks-dir`) to install all `.apk` files from a directory (interactive + CLI), with per-APK logging and a summary report.
+- Added: Batch uninstall from file (`--uninstall-list`) and interactive multi-select batch uninstall.
+- Added: Confirmation helper and `--yes|-y` override for scripting/automation of destructive actions.
+- Added: Download verification (Content-Length check) and sha256 logging for APK downloads.
+- Added: Separate `install.log` and `uninstall.log` files and rotation support.
 - Added: Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf` and an interactive theme chooser.
 - Added: Tablet and Ultra-wide resolution presets (1200x1920, 3440x1440).
 - Changed: Bumped script to **v0.5.1** and documented new CLI flags in `README.md`.

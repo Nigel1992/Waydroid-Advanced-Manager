@@ -24,6 +24,9 @@ PREV_SETTINGS_SAVED=0
 DEFAULT_DPI=""
 DEFAULT_RESOLUTION=""
 THEME="light"  # persisted theme (light|dark) - can be overridden in ~/.config/waydroid-manager.conf
+YES_FLAG=0  # set by --yes or -y to auto-confirm destructive actions
+INSTALL_LOG="$LOG_DIR/install.log"
+UNINSTALL_LOG="$LOG_DIR/uninstall.log"
 
 # UI Helpers
 # Determine script path for version/date detection
@@ -49,13 +52,16 @@ ensure_log_dir() {
 }
 
 rotate_logs() {
-    if [ -f "$LOG_FILE" ]; then
-        local size
-        size=$(stat -c %s "$LOG_FILE" 2>/dev/null || echo 0)
-        if [ "$size" -gt 1048576 ]; then
-            mv -f "$LOG_FILE" "${LOG_FILE}.1" 2>/dev/null || true
+    local max=1048576
+    for f in "$LOG_FILE" "$INSTALL_LOG" "$UNINSTALL_LOG"; do
+        if [ -f "$f" ]; then
+            local size
+            size=$(stat -c %s "$f" 2>/dev/null || echo 0)
+            if [ "$size" -gt "$max" ]; then
+                mv -f "$f" "${f}.1" 2>/dev/null || true
+            fi
         fi
-    fi
+    done
 }
 
 log_line() {
@@ -107,8 +113,20 @@ print_header() {
     clear
     local version=$(get_version)
     local release_date=$(get_release_date)
+    # Theme display with emoji (note: labels are swapped by design)
+    local theme_label="${THEME:-light}"
+    local theme_emoji=""
+    local theme_text=""
+    if [ "$theme_label" = "dark" ]; then
+        theme_emoji="🔆"
+        theme_text="applies light palette"
+    else
+        theme_emoji="🌙"
+        theme_text="applies dark palette"
+    fi
     echo -e "${CYAN}${BOLD}=================================================="
     echo -e "           WAYDROID ADVANCED MANAGER  ${YELLOW}v${version} ${NC}${CYAN}(${release_date})"
+    echo -e "               ${BOLD}${theme_emoji}${NC} Theme: ${theme_label} (${theme_text})"
     echo -e "==================================================${NC}"
 }
 
@@ -124,8 +142,10 @@ Options:
   --restart                    Restart Waydroid stack
   --stop                       Stop Waydroid and Weston
   --status                     Show system status
-  --install-apk <path|url>     Install APK from file or URL
-  --install-apks-dir <dir>     Install all APKs from a directory
+  --install-apk <path|url>     Install APK from file or URL (supports Content-Length verification & sha256 logging)
+  --install-apks-dir <dir>     Install all APKs from a directory (batch summary & logs)
+  --uninstall-list <file>     Uninstall packages from a newline-delimited file
+  --yes, -y                    Auto-confirm destructive actions (useful for scripting)
   --set-dpi <dpi>              Set display density
   --set-res <WxH>              Set display resolution
   --list-apps-export [file]    Export installed apps list
@@ -213,6 +233,15 @@ parse_args() {
                 set_theme_cli "$1" "no-pause"
                 action_taken=1
                 ;;
+            --yes|-y)
+                YES_FLAG=1
+                ;;
+            --uninstall-list)
+                shift
+                ensure_deps
+                uninstall_list_cli "$1"
+                action_taken=1
+                ;;
             --self-update)
                 ensure_deps
                 self_update
@@ -251,6 +280,40 @@ check_dependencies() {
         return 1
     fi
     return 0
+}
+
+# Confirm helper: respects global YES_FLAG; uses zenity if available for GUI prompt
+confirm() {
+    local msg="$1"
+    if [ "$YES_FLAG" -eq 1 ]; then
+        return 0
+    fi
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --question --title="Confirm" --text="$msg" --width=400 2>/dev/null
+        return $?  # 0 if Yes
+    else
+        read -p "$msg [y/N]: " ans
+        case "$ans" in
+            [Yy]|[Yy][Ee][Ss]) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
+}
+
+log_install() {
+    local msg="$1"
+    local ts
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$ts] $msg" >> "${INSTALL_LOG:-$LOG_DIR/install.log}"
+    log_line "INFO" "$msg"
+}
+
+log_uninstall() {
+    local msg="$1"
+    local ts
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$ts] $msg" >> "${UNINSTALL_LOG:-$LOG_DIR/uninstall.log}"
+    log_line "INFO" "$msg"
 }
 
 cleanup() {
@@ -480,23 +543,22 @@ install_apk() {
         if [[ "$APK_URL" =~ ^https?://.*\.apk$ ]]; then
             local TMP_APK="/tmp/waydroid_apk_$$.apk"
             print_status "Downloading APK..."
-            if command -v curl >/dev/null 2>&1; then
-                curl -L -o "$TMP_APK" "$APK_URL"
-            elif command -v wget >/dev/null 2>&1; then
-                wget -O "$TMP_APK" "$APK_URL"
-            else
-                print_error "curl or wget required to download APK."
+            if ! download_verify_apk "$APK_URL" "$TMP_APK"; then
+                print_error "Failed to download or verify APK."
                 read -n 1 -p "Press any key..."
                 return
             fi
-            if [ -f "$TMP_APK" ]; then
-                print_status "Installing $(basename "$TMP_APK")..."
-                adb -s "${CONNECTED_DEVICES[0]}" install -r "$TMP_APK"
+            print_status "Installing $(basename "$TMP_APK")..."
+            adb -s "${CONNECTED_DEVICES[0]}" install -r "$TMP_APK"
+            local rc=$?
+            if [ $rc -eq 0 ]; then
+                log_install "SUCCESS $(basename "$TMP_APK")"
                 print_success "Done."
-                rm -f "$TMP_APK"
             else
-                print_error "Failed to download APK."
+                log_install "FAIL $(basename "$TMP_APK") rc=$rc"
+                print_error "Install failed."
             fi
+            rm -f "$TMP_APK"
         else
             print_error "Invalid URL. Must end with .apk"
         fi
@@ -511,6 +573,47 @@ install_apk() {
     read -n 1 -p "Press any key..."
 }
 
+# Download URL into target file and verify content-length when available
+download_verify_apk() {
+    local url="$1"
+    local target="$2"
+    # Try to fetch content-length
+    local cl
+    if command -v curl >/dev/null 2>&1; then
+        cl=$(curl -sI "$url" | awk '/[Cc]ontent-[Ll]ength/ {print $2}' | tr -d '\r')
+        curl -fL -o "$target" "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        cl=$(wget --spider --server-response "$url" 2>&1 | awk '/Content-Length/ {print $2}' | tr -d '\r')
+        wget -O "$target" "$url"
+    else
+        print_error "curl or wget required to download APK."
+        return 2
+    fi
+
+    if [ ! -f "$target" ]; then
+        print_error "Failed to download APK."
+        return 2
+    fi
+
+    # Verify size if Content-Length present
+    if [ -n "$cl" ]; then
+        local actual
+        actual=$(stat -c %s "$target" 2>/dev/null || echo 0)
+        if [ "$actual" -ne "$cl" ]; then
+            print_error "Downloaded file size ($actual) does not match Content-Length ($cl). Aborting."
+            return 3
+        fi
+    fi
+
+    # Generate sha256 for user's verification
+    if command -v sha256sum >/dev/null 2>&1; then
+        local shasum
+        shasum=$(sha256sum "$target" | awk '{print $1}')
+        log_line "INFO" "Downloaded $target sha256=$shasum"
+    fi
+    return 0
+}
+
 install_apk_cli() {
     local src="$1"
     if [ -z "$src" ]; then
@@ -523,27 +626,33 @@ install_apk_cli() {
     if [[ "$src" =~ ^https?://.*\.apk$ ]]; then
         local TMP_APK="/tmp/waydroid_apk_$$.apk"
         print_status "Downloading APK..."
-        if command -v curl >/dev/null 2>&1; then
-            curl -L -o "$TMP_APK" "$src"
-        elif command -v wget >/dev/null 2>&1; then
-            wget -O "$TMP_APK" "$src"
-        else
-            print_error "curl or wget required to download APK."
+        if ! download_verify_apk "$src" "$TMP_APK"; then
+            print_error "Failed to download or verify APK."
+            [ -f "$TMP_APK" ] && rm -f "$TMP_APK"
             exit 1
         fi
-        if [ -f "$TMP_APK" ]; then
-            adb -s "${CONNECTED_DEVICES[0]}" install -r "$TMP_APK"
-            rm -f "$TMP_APK"
+        adb -s "${CONNECTED_DEVICES[0]}" install -r "$TMP_APK"
+        local rc=$?
+        if [ $rc -eq 0 ]; then
+            log_install "SUCCESS $(basename "$TMP_APK")"
         else
-            print_error "Failed to download APK."
-            exit 1
+            log_install "FAIL $(basename "$TMP_APK") rc=$rc"
         fi
+        rm -f "$TMP_APK"
+        exit $rc
     else
         if [ ! -f "$src" ]; then
             print_error "APK file not found: $src"
             exit 1
         fi
         adb -s "${CONNECTED_DEVICES[0]}" install -r "$src"
+        local rc=$?
+        if [ $rc -eq 0 ]; then
+            log_install "SUCCESS $(basename "$src")"
+        else
+            log_install "FAIL $(basename "$src") rc=$rc"
+        fi
+        exit $rc
     fi
 }
 
@@ -576,21 +685,42 @@ install_apks_dir_cli() {
     fi
 
     local found=0
+    local success_count=0
+    local fail_count=0
+    local failed_list=()
+
     for apk in "$dir"/*.apk; do
         [ -e "$apk" ] || continue
         found=1
         print_status "Installing $(basename "$apk")..."
-        adb -s "${CONNECTED_DEVICES[0]}" install -r "$apk" >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
+        adb -s "${CONNECTED_DEVICES[0]}" install -r "$apk" >/tmp/waydroid_install_out_$$ 2>&1
+        local rc=$?
+        if [ $rc -eq 0 ]; then
             print_success "Installed: $(basename "$apk")"
+            log_install "SUCCESS $(basename "$apk")"
+            success_count=$((success_count+1))
         else
-            print_error "Failed: $(basename "$apk")"
+            print_error "Failed: $(basename "$apk") (rc=$rc)"
+            log_install "FAIL $(basename "$apk") rc=$rc"
+            failed_list+=("$(basename "$apk")")
+            fail_count=$((fail_count+1))
         fi
         sleep 1
     done
+
     if [ $found -eq 0 ]; then
         print_error "No .apk files found in $dir"
         return 1
+    fi
+
+    print_status "Batch install summary: $success_count succeeded, $fail_count failed"
+    if [ ${#failed_list[@]} -gt 0 ]; then
+        echo "Failed packages:"; printf '%s
+' "${failed_list[@]}"
+    fi
+
+    if [ $fail_count -gt 0 ]; then
+        return 2
     fi
     return 0
 }
@@ -769,9 +899,10 @@ uninstall_apps_menu() {
         echo -e "${CYAN}│${NC}  ${BOLD}3)${NC}  🗑 Uninstall from List (Interactive)"
         echo -e "${CYAN}│${NC}  ${BOLD}4)${NC}  🔎 Search + Uninstall (Partial Match)"
         echo -e "${CYAN}│${NC}  ${BOLD}5)${NC}  💾 Export Installed Apps"
+        echo -e "${CYAN}│${NC}  ${BOLD}6)${NC}  🗑 Batch Uninstall (File or Multi-Select)"
         echo -e "${CYAN}└${NC}${CYAN}──────────────────────────────────────────────────────────┘${NC}"
         echo ""
-        echo -e "${BOLD}${MAGENTA}6)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
+        echo -e "${BOLD}${MAGENTA}7)${NC}  ${MAGENTA}↩ Back to Main Menu${NC}"
         echo -e "${CYAN}==================================================${NC}"
         echo ""
         
@@ -782,7 +913,36 @@ uninstall_apps_menu() {
             3) uninstall_from_list ;;
             4) uninstall_by_search ;;
             5) export_installed_apps "" ;;
-            6) break ;;
+            6)
+                # Batch uninstall: let user select a file or multi-select packages via zenity
+                if command -v zenity >/dev/null 2>&1; then
+                    choice=$(zenity --list --radiolist --title="Batch Uninstall" --text="Choose method" --column="Select" --column="Method" TRUE "Select File (.txt with package per line)" FALSE "Multi-select from installed apps" --height=200 --width=500 2>/dev/null)
+                    if [ "$choice" = "Select File (.txt with package per line)" ]; then
+                        FILE=$(zenity --file-selection --title="Select package list file" 2>/dev/null)
+                        if [ -n "$FILE" ] && [ -f "$FILE" ]; then
+                            uninstall_list_cli "$FILE"
+                        else
+                            print_error "No valid file selected"
+                        fi
+                    else
+                        # multi-select installed apps
+                        pkgs=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | sort)
+                        selected=$(echo -e "$pkgs" | zenity --list --multiple --title="Select packages to uninstall" --column="Package" --height=600 --width=600 2>/dev/null)
+                        if [ -n "$selected" ]; then
+                            IFS="," read -r -a arr <<< "$selected"
+                            tmpfile="/tmp/waydroid_uninstall_$$.txt"
+                            for p in "${arr[@]}"; do echo "$p" >> "$tmpfile"; done
+                            uninstall_list_cli "$tmpfile"
+                            rm -f "$tmpfile"
+                        else
+                            print_status "Cancelled"
+                        fi
+                    fi
+                else
+                    print_status "Zenity not available. Use --uninstall-list <file> to uninstall from CLI."
+                fi
+                ;;
+            7) break ;;
             *) echo -e "${RED}❌ Invalid selection.${NC}"; sleep 1 ;;
         esac
     done
@@ -881,6 +1041,12 @@ uninstall_by_package() {
         return
     fi
     
+    if ! confirm "Uninstall $package_name?"; then
+        print_status "Cancelled"
+        sleep 1
+        return
+    fi
+
     echo ""
     echo -e "${BOLD}${CYAN}━━━ UNINSTALLING ━━━${NC}\n"
     print_status "Attempting to uninstall: ${BOLD}${package_name}${NC}..."
@@ -890,10 +1056,12 @@ uninstall_by_package() {
     if echo "$result" | grep -q "Success"; then
         echo ""
         print_success "✓ Successfully uninstalled ${BOLD}${package_name}${NC}"
+        log_uninstall "SUCCESS $package_name"
     else
         echo ""
         print_error "✗ Failed to uninstall ${BOLD}${package_name}${NC}"
         echo -e "${YELLOW}Response: $result${NC}"
+        log_uninstall "FAIL $package_name: $result"
     fi
     
     # Check if Waydroid is still running
@@ -905,6 +1073,48 @@ uninstall_by_package() {
         sleep 2
         restart_waydroid
     fi
+}
+
+# Batch uninstall from file (CLI)
+uninstall_list_cli() {
+    local file="$1"
+    if [ -z "$file" ] || [ ! -f "$file" ]; then
+        print_error "List file not found: $file"
+        exit 1
+    fi
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || exit 1
+    fi
+    local total=0
+    local success=0
+    local fail=0
+    while IFS= read -r pkg; do
+        pkg=$(echo "$pkg" | tr -d '\r' | tr -d '\n')
+        [ -z "$pkg" ] && continue
+        total=$((total+1))
+        if confirm "Uninstall $pkg?"; then
+            print_status "Uninstalling $pkg..."
+            local result
+            result=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm uninstall "$pkg" 2>&1)
+            if echo "$result" | grep -q "Success"; then
+                print_success "Uninstalled $pkg"
+                log_uninstall "SUCCESS $pkg"
+                success=$((success+1))
+            else
+                print_error "Failed to uninstall $pkg"
+                print_status "Response: $result"
+                log_uninstall "FAIL $pkg: $result"
+                fail=$((fail+1))
+            fi
+        else
+            print_status "Skipped $pkg"
+        fi
+    done < "$file"
+    print_status "Batch uninstall summary: $success succeeded, $fail failed (total $total)"
+    if [ $fail -gt 0 ]; then
+        return 2
+    fi
+    return 0
 }
 
 uninstall_by_search() {
@@ -955,16 +1165,17 @@ uninstall_by_search() {
         return
     fi
 
-    zenity --question --title="Confirm Uninstall" --text="Uninstall $selected_app?" --width=400 2>/dev/null
-    if [ $? -eq 0 ]; then
+    if confirm "Uninstall $selected_app?"; then
         print_status "Uninstalling ${BOLD}${selected_app}${NC}..."
         local result
         result=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm uninstall "$selected_app" 2>&1)
         if echo "$result" | grep -q "Success"; then
             print_success "✓ Successfully uninstalled ${BOLD}${selected_app}${NC}"
+            log_uninstall "SUCCESS $selected_app"
         else
             print_error "✗ Failed to uninstall ${BOLD}${selected_app}${NC}"
             echo -e "${YELLOW}Response: $result${NC}"
+            log_uninstall "FAIL $selected_app: $result"
         fi
         sleep 2
     else
@@ -1054,19 +1265,19 @@ uninstall_from_list() {
             return
         fi
         echo ""
-        echo -e "${BOLD}${CYAN}Confirm uninstall of:${NC} ${BOLD}${selected_app}${NC}?"
-        zenity --question --title="Confirm Uninstall" --text="Uninstall $selected_app?" --width=400 2>/dev/null
-        if [ $? -eq 0 ]; then
+        if confirm "Uninstall $selected_app?"; then
             echo ""
             print_status "Uninstalling ${BOLD}${selected_app}${NC}..."
             result=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm uninstall "$selected_app" 2>&1)
             if echo "$result" | grep -q "Success"; then
                 echo ""
                 print_success "✓ Successfully uninstalled ${BOLD}${selected_app}${NC}"
+                log_uninstall "SUCCESS $selected_app"
             else
                 echo ""
                 print_error "✗ Failed to uninstall ${BOLD}${selected_app}${NC}"
                 echo -e "${YELLOW}Response: $result${NC}"
+                log_uninstall "FAIL $selected_app: $result"
             fi
             sleep 1
             if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
@@ -1116,6 +1327,11 @@ change_display_settings() {
             3) view_current_settings ;;
             4)
                 echo -e "${YELLOW}Resetting display size and density to default...${NC}"
+                if ! confirm "Reset display size and density to defaults?"; then
+                    print_status "Cancelled"
+                    sleep 1
+                    continue
+                fi
                 if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
                     wait_and_connect_adb $(get_waydroid_ip) || continue
                 fi
@@ -1346,6 +1562,12 @@ load_config
 # Ensure theme colors are applied from config
 apply_theme
 ensure_log_dir
+# Initialize specialised logs
+mkdir -p "$LOG_DIR"
+INSTALL_LOG="${INSTALL_LOG:-$LOG_DIR/install.log}"
+UNINSTALL_LOG="${UNINSTALL_LOG:-$LOG_DIR/uninstall.log}"
+: > "$INSTALL_LOG" 2>/dev/null || true
+: > "$UNINSTALL_LOG" 2>/dev/null || true
 rotate_logs
 parse_args "$@"
 check_dependencies || exit 1
