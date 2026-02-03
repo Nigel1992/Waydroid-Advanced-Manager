@@ -20,7 +20,7 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 - ✅ Status view and self-update
 - ✅ Batch APK install from a directory (interactive + CLI), with per-APK logging and end summary
 - ✅ Batch uninstall from file or multi-select (interactive + CLI)
-- ✅ Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf`
+- ✅ Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf` — selecting `light` applies a light palette, selecting `dark` applies a darker/bold palette
 - ✅ Confirmations for destructive actions with `--yes/-y` override for automation
 - ✅ New tablet and ultra-wide resolution presets
 - ✅ CLI flags for non-interactive use

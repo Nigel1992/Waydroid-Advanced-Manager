@@ -113,16 +113,16 @@ print_header() {
     clear
     local version=$(get_version)
     local release_date=$(get_release_date)
-    # Theme display with emoji (note: labels are swapped by design)
+    # Theme display with emoji (standard mapping)
     local theme_label="${THEME:-light}"
     local theme_emoji=""
     local theme_text=""
     if [ "$theme_label" = "dark" ]; then
-        theme_emoji="🔆"
-        theme_text="applies light palette"
-    else
         theme_emoji="🌙"
-        theme_text="applies dark palette"
+        theme_text="dark palette"
+    else
+        theme_emoji="🔆"
+        theme_text="light palette"
     fi
     echo -e "${CYAN}${BOLD}=================================================="
     echo -e "           WAYDROID ADVANCED MANAGER  ${YELLOW}v${version} ${NC}${CYAN}(${release_date})"
@@ -726,24 +726,23 @@ install_apks_dir_cli() {
 }
 
 # Apply terminal theme (colors)
-# NOTE: Per user request the label meanings are swapped:
-# Selecting THEME="dark" applies the light palette, and THEME="light" applies the darker/bold palette.
+# Selecting THEME="dark" applies a darker/bold palette, THEME="light" applies a light palette.
 apply_theme() {
     if [ "${THEME:-light}" = "dark" ]; then
-        # Light palette (mapped to the 'dark' label)
-        RED='\033[0;31m'
-        GREEN='\033[0;32m'
-        BLUE='\033[0;34m'
-        CYAN='\033[0;36m'
-        YELLOW='\033[1;33m'
-        BOLD='\033[1m'
-        NC='\033[0m'
-    else
-        # Darker/bold palette (mapped to the 'light' label)
+        # Darker/bold palette
         RED='\033[1;31m'
         GREEN='\033[1;32m'
         BLUE='\033[1;34m'
         CYAN='\033[1;36m'
+        YELLOW='\033[1;33m'
+        BOLD='\033[1m'
+        NC='\033[0m'
+    else
+        # Light palette
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        BLUE='\033[0;34m'
+        CYAN='\033[0;36m'
         YELLOW='\033[1;33m'
         BOLD='\033[1m'
         NC='\033[0m'
