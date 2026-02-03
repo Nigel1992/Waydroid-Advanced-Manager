@@ -1340,8 +1340,9 @@ while true; do
     echo -e "  ${BOLD}8)${NC} ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
     echo -e "  ${BOLD}9)${NC} ${MAGENTA}COPY/PASTE${NC} to Android"
     echo -e "  ${BOLD}10)${NC} ${CYAN}STATUS${NC}"
-    echo -e "  ${BOLD}11)${NC} ${MAGENTA}SELF UPDATE${NC}"
-    echo -e "  ${BOLD}12)${NC} ${YELLOW}EXIT${NC}"
+    echo -e "  ${BOLD}11)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
+    echo -e "  ${BOLD}12)${NC} ${MAGENTA}SELF UPDATE${NC}"
+    echo -e "  ${BOLD}13)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -1435,8 +1436,9 @@ while true; do
             fi
             ;;
         10) show_status ;;
-        11) self_update ;;
-        12) clear; exit 0 ;;
+        11) set_theme_interactive ;;
+        12) self_update ;;
+        13) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
