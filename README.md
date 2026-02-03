@@ -15,7 +15,14 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 - ✅ Zenity integration for optional graphical dialogs (uninstall/installer)
 - ✅ Copy/Paste helper (Option 9) — sends terminal text into Android input fields; special characters supported
 - ✅ Change display resolution & density; reset to defaults
-- ✅ CLI flags: `--version` / `-v` and `--help` / `-h`
+- ✅ Restore previous display settings (in-session)
+- ✅ App export, search + uninstall
+- ✅ Status view and self-update
+- ✅ Batch APK install from a directory (interactive + CLI)
+- ✅ Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf`
+- ✅ New tablet and ultra-wide resolution presets
+- ✅ CLI flags for non-interactive use
+- ✅ Logging to file (with rotation)
 
 ---
 
@@ -46,6 +53,38 @@ Tip: run `./waydroid-manager.sh --version` to print the bundled version and rele
 
 ---
 
+## ⚙️ CLI Flags (Non-Interactive)
+
+```
+--version, -v                Show version and exit
+--help, -h                   Show help and exit
+--debug                      Enable debug logging
+--restart                    Restart Waydroid stack
+--stop                       Stop Waydroid and Weston
+--status                     Show system status
+--install-apk <path|url>     Install APK from file or URL
+--install-apks-dir <dir>     Install all APKs from a directory
+--set-dpi <dpi>              Set display density
+--set-res <WxH>              Set display resolution
+--list-apps-export [file]    Export installed apps list
+--theme <dark|light>         Set and persist terminal theme (light or dark)
+--self-update                Update script from git
+```
+
+---
+
+## 📝 Logging
+
+Logs are written to:
+
+```
+~/.cache/waydroid-manager/waydroid-manager.log
+```
+
+The log file is rotated when it exceeds 1 MB.
+
+---
+
 ## 📋 Copy/Paste to Android (Option 9) — Important Notes
 
 - Usage: focus the input field inside Android, select Option 9, type or paste text into your terminal and press ENTER. The script automatically sends the text to the currently active input box in Android.
@@ -55,7 +94,7 @@ Tip: run `./waydroid-manager.sh --version` to print the bundled version and rele
 ---
 
 ## 🧾 Changelog & Releases
-See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.4.0** (2026-01-31).
+See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.5.1** (2026-02-03).
 
 ---
 
