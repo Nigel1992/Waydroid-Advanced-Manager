@@ -671,13 +671,14 @@ set_theme_interactive() {
     if command -v zenity >/dev/null 2>&1; then
         choice=$(zenity --list --radiolist --title="Select Theme" --text="Choose a terminal theme" --column="Select" --column="Theme" TRUE "light" FALSE "dark" --height=200 --width=300 2>/dev/null)
         if [ -n "$choice" ]; then
-            set_theme_cli "$choice"
+            # use no-pause so set_theme_cli does not block; we pause once here
+            set_theme_cli "$choice" "no-pause"
             read -n 1 -p "Press any key to continue..."
         fi
     else
         echo "Current theme: ${THEME:-light}"
         read -p "Enter theme (light/dark): " choice
-        set_theme_cli "$choice"
+        set_theme_cli "$choice" "no-pause"
         read -n 1 -p "Press any key to continue..."
     fi
 }
