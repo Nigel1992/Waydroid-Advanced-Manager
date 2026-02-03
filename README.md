@@ -25,6 +25,7 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 - ✅ New tablet and ultra-wide resolution presets
 - ✅ CLI flags for non-interactive use
 - ✅ Install/uninstall logs separated and rotated, plus logging verbosity
+- ✅ Licensed under the MIT License (see `LICENSE`)
 
 ---
 
@@ -110,7 +111,10 @@ Bug reports, PRs, and feature suggestions are welcome. Please open an issue with
 ---
 
 ## 📜 License
-See the `LICENSE` file in this repository.
+This project is licensed under the **MIT License**. See the `LICENSE` file for the full license text and permissions.
+
+Copyright (c) 2026 Nigel Hagen
+
 
 ---
 
