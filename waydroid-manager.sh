@@ -1,4 +1,32 @@
+
 #!/bin/bash
+
+# --- Update Check on Launch ---
+get_latest_version_from_github() {
+    local raw_url="https://raw.githubusercontent.com/Nigel1992/Waydroid-Advanced-Manager/main/waydroid-manager.sh"
+    local latest_version
+    latest_version=$(curl -s "$raw_url" | grep -E '^SCRIPT_VERSION=' | head -1 | cut -d'=' -f2 | tr -d '"')
+    echo "$latest_version"
+}
+
+check_for_updates() {
+    local latest_version
+    latest_version=$(get_latest_version_from_github)
+    if [ -n "$latest_version" ]; then
+        if [ "$SCRIPT_VERSION" != "$latest_version" ]; then
+            echo -e "${YELLOW}Update available!${NC} Current: ${SCRIPT_VERSION}, Latest: ${latest_version}"
+            echo -e "Download the latest script from GitHub."
+        else
+            echo -e "${GREEN}Waydroid Manager is up to date.${NC} (v${SCRIPT_VERSION})"
+        fi
+    else
+        echo -e "${RED}Could not check for updates.${NC}"
+    fi
+    echo -e "\nPress Enter to continue..."
+    read -r _
+}
+
+check_for_updates
 
 # ---------------- COLORS & UI ----------------
 RED='\033[0;31m'
@@ -32,6 +60,7 @@ UNINSTALL_LOG="$LOG_DIR/uninstall.log"
 # Determine script path for version/date detection
 SCRIPT_PATH="$(readlink -f "$0")"
 SCRIPT_SELF_DIR="$(dirname "$SCRIPT_PATH")"
+
 
 # Embedded version (single source of truth inside script)
 SCRIPT_VERSION="0.5.1"
