@@ -2400,16 +2400,33 @@ accessibility_tools() {
 
     case "$a11y_choice" in
         1)
-            # Large text mode — increase terminal font size via escape codes
+            # Large text mode — zoom terminal in/out using xdotool or gsettings
             if [ "${LARGE_TEXT:-0}" -eq 0 ]; then
-                # Request larger font via xterm OSC (works in many terminals)
-                printf '\033]50;%s\007' "xft:Monospace:size=16"
-                LARGE_TEXT=1
-                print_success "Large text mode ENABLED. (Font size increased)"
+                if command -v xdotool >/dev/null 2>&1; then
+                    # Send Ctrl+Shift+= (zoom in) multiple times for larger text
+                    for _ in 1 2 3 4; do
+                        xdotool key ctrl+shift+equal
+                        sleep 0.1
+                    done
+                    LARGE_TEXT=1
+                    print_success "Large text mode ENABLED. (Zoomed in 4 steps)"
+                else
+                    print_error "xdotool is required for Large Text mode."
+                    echo -e "  ${CYAN}sudo apt install xdotool${NC}"
+                fi
             else
-                printf '\033]50;%s\007' "xft:Monospace:size=10"
-                LARGE_TEXT=0
-                print_success "Large text mode DISABLED. (Font size restored)"
+                if command -v xdotool >/dev/null 2>&1; then
+                    # Send Ctrl+minus (zoom out) to restore
+                    for _ in 1 2 3 4; do
+                        xdotool key ctrl+minus
+                        sleep 0.1
+                    done
+                    LARGE_TEXT=0
+                    print_success "Large text mode DISABLED. (Zoomed out 4 steps)"
+                else
+                    print_error "xdotool is required for Large Text mode."
+                    echo -e "  ${CYAN}sudo apt install xdotool${NC}"
+                fi
             fi
             read -n 1 -p "Press any key to continue..."
             ;;
