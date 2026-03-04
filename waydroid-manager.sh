@@ -2613,14 +2613,56 @@ while true; do
     echo -e "  ${BOLD}25)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
-    if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
-        echo -e "${GREEN} ● ACTIVE:${NC} ${CONNECTED_DEVICES[*]}"
+    # Save cursor position for live status update
+    if command -v tput >/dev/null 2>&1; then
+        tput sc
+        _restore_cursor() { tput rc; }
     else
-        echo -e "${RED} ● STATUS:${NC} Disconnected"
+        printf '\033[s'
+        _restore_cursor() { printf '\033[u'; }
     fi
-    echo -e "${CYAN}==================================================${NC}"
-    
-    read -p "Selection: " CHOICE
+
+    # Print initial status line
+    _update_status_line() {
+        _restore_cursor
+        printf '\033[2K'  # clear the status line
+        local anydev
+        anydev=$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}' | head -n1 || true)
+        if [ -n "$anydev" ]; then
+            CONNECTED_DEVICES=("$anydev")
+            printf "%b\n" "${GREEN} ● ACTIVE:${NC} ${anydev}"
+        elif [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
+            local dev="${CONNECTED_DEVICES[0]}"
+            local state
+            state=$(adb devices 2>/dev/null | awk -v d="$dev" '$1==d {print $2}' || true)
+            if [ "$state" = "device" ]; then
+                printf "%b\n" "${GREEN} ● ACTIVE:${NC} ${dev}"
+            elif [ -n "$state" ]; then
+                printf "%b\n" "${YELLOW} ● ${state^^}:${NC} ${dev}"
+            else
+                CONNECTED_DEVICES=()
+                printf "%b\n" "${RED} ● STATUS:${NC} Disconnected"
+            fi
+        else
+            printf "%b\n" "${RED} ● STATUS:${NC} Disconnected"
+        fi
+        printf '\033[2K'
+        printf "%b\n" "${CYAN}==================================================${NC}"
+    }
+
+    _update_status_line
+
+    # Read input with 1-second timeout to allow live status refresh
+    CHOICE=""
+    while true; do
+        # Position cursor at the selection prompt line (2 lines below status)
+        printf '\033[2K\r'
+        if read -t 1 -p "Selection: " CHOICE 2>/dev/null; then
+            break
+        fi
+        # No input yet — refresh status line, then re-prompt
+        _update_status_line
+    done
 
     # Helper: require Waydroid running
     # Accepts an active ADB-connected device as a valid running session
