@@ -22,7 +22,7 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 - [Features at a Glance](#-features-at-a-glance)
 - [Requirements](#-requirements)
 - [Quick Start](#-quick-start)
-- [Menu Overview](#-menu-overview)
+- [Menu Overview](#%EF%B8%8F-menu-overview)
 - [CLI Flags (Non-Interactive)](#%EF%B8%8F-cli-flags-non-interactive)
 - [Logging](#-logging)
 - [Copy/Paste to Android](#-copypaste-to-android-option-9)
