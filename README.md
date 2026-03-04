@@ -37,7 +37,11 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 
 ### 🆕 What's New in 0.8.0
 
-- **Realtime Resource Monitor**: Option 19 now shows live CPU, RAM, and Disk usage, updating in-place every second for a true dashboard experience.
+- **ADB Shell Access** (Option 3): Drop into an interactive ADB shell directly from the menu, with automatic device state checks and reconnection.
+- **APK Downloader** (Option 19): Search APKMirror by app name or download APKs from a direct URL, with optional immediate install.
+- **Theme Customization** (Option 20): Choose from 6 color schemes — Light, Dark, Ocean, Forest, Sunset, Neon — all persisted to config.
+- **Accessibility Tools** (Option 21): Large Text mode, Text-to-Speech status readout, and High-Contrast mode for comfortable terminal use.
+- **Realtime Resource Monitor** (Option 23): Live CPU, RAM, and Disk usage updating in-place every second for a true dashboard experience.
 - **Session Attach Fix**: Menu options now work after attaching to an existing ADB session, even if Waydroid status is not RUNNING.
 - **Robust ADB detection**: Improved fallback logic for session detection and device connection.
 - **Bugfixes**: No more false "Waydroid is not running" errors when attached; resource monitor no longer scrolls, but updates in-place.
@@ -47,6 +51,7 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 |---------|-------------|
 | **Start / Restart** | Launch Waydroid stack + Weston with automatic Wayland socket detection |
 | **Stop** | Gracefully stop Waydroid and Weston compositor |
+| **ADB Shell Access** | Drop into an interactive ADB shell with auto-reconnect if device is offline |
 | **Auto-detect Sessions** | On launch, detects running Waydroid / ADB devices and offers to connect |
 | **APK Install** | Install from local files, URLs (curl/wget), or batch from a directory |
 | **Waydroid Script** | One-click access to GApps, Magisk, and more via casualsnek/waydroid_script |
@@ -77,7 +82,10 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 | 🗑 **Clear App Data** | Wipe all data or just cache for any app |
 | 🚀 **Quick Launch** | Launch any installed app by package name |
 | ℹ️ **Device Info** | Android version, display, storage, memory, network, uptime |
-| 🟢 **Realtime Resource Monitor** | NEW: Live CPU/RAM/Disk usage updates in-place every second (option 19) |
+| � **APK Downloader** | Search APKMirror by name or download from direct URL; optional instant install |
+| 🎨 **Theme Customization** | 6 color schemes: Light, Dark, Ocean, Forest, Sunset, Neon — persisted |
+| ♿ **Accessibility Tools** | Large Text mode, Text-to-Speech status, High-Contrast mode |
+| 🟢 **Realtime Resource Monitor** | Live CPU/RAM/Disk usage updates in-place every second |
 
 ### 🔒 Safety & Automation
 | Feature | Description |
@@ -104,19 +112,20 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 | `zenity` | Graphical dialogs (file picker, app selector) | Optional |
 | `wl-clipboard` | Wayland clipboard (`wl-copy` / `wl-paste`) | Optional |
 | `xdotool` | Window focus for modal dialogs | Optional |
+| `espeak-ng` or `spd-say` | Text-to-Speech for accessibility | Optional |
 
 ### One-Line Install (Debian / Ubuntu)
 
 ```bash
 sudo apt update && sudo apt install -y \
   waydroid weston adb zenity curl wget git \
-  python3 python3-pip wl-clipboard xdotool
+  python3 python3-pip wl-clipboard xdotool espeak-ng
 ```
 
 ### Arch Linux
 
 ```bash
-sudo pacman -S waydroid weston android-tools zenity curl wget git python wl-clipboard xdotool
+sudo pacman -S waydroid weston android-tools zenity curl wget git python wl-clipboard xdotool espeak-ng
 ```
 
 ---
@@ -444,7 +453,7 @@ adb logcat -d -t 1000 > ~/logcat_dump.txt
 <summary><strong>🔹 How do I update the manager?</strong></summary>
 
 **Option A — From the menu:**
-Select Option 20 (Check for Updates). If a new version is available, the manager shows the GitHub URL and offers to open it in your browser.
+Select Option 25 (Check for Updates). If a new version is available, the manager shows the GitHub URL and offers to open it in your browser.
 
 **Option B — CLI:**
 ```bash
@@ -548,7 +557,7 @@ sudo waydroid init
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 
-**Latest release: v0.7.0** (2026-03-04)
+**Latest release: v0.8.0** (2026-03-04)
 
 ---
 
