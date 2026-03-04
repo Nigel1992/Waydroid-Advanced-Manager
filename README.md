@@ -11,17 +11,19 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 ## ✨ Highlights & Features
 
 - ✅ Start/Restart Waydroid stack and Weston with automatic Wayland socket detection
+- ✅ **Auto-detect existing sessions** — on launch, detects running Waydroid / ADB devices and offers to connect
 - ✅ ADB auto-handshake and reconnect logic for reliable operations
 - ✅ Install APKs from local files or direct URLs (curl/wget)
+- ✅ **Weston window focus** — APK install dialogs are shown on top of the Weston compositor window
 - ✅ Zenity integration for optional graphical dialogs (uninstall/installer)
 - ✅ Copy/Paste helper (Option 9) — sends terminal text into Android input fields; special characters supported
 - ✅ Change display resolution & density; reset to defaults
 - ✅ Restore previous display settings (in-session)
 - ✅ App export, search + uninstall
-- ✅ Status view and self-update
+- ✅ **GitHub update check** — compares local version against GitHub; shows URL and offers to open in browser
 - ✅ Batch APK install from a directory (interactive + CLI), with per-APK logging and end summary
 - ✅ Batch uninstall from file or multi-select (interactive + CLI)
-- ✅ Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf` — selecting `light` applies a light palette, selecting `dark` applies a darker/bold palette
+- ✅ Theme toggle (light/dark) with persistence to `~/.config/waydroid-manager.conf`
 - ✅ Confirmations for destructive actions with `--yes/-y` override for automation
 - ✅ New tablet and ultra-wide resolution presets
 - ✅ CLI flags for non-interactive use
@@ -33,13 +35,13 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 ## 🔧 Requirements
 
 - Waydroid, Weston, ADB, Python3, Git
-- Optional: `zenity` (GUI dialogs), `wl-clipboard` (`wl-copy` / `wl-paste` for Wayland)
+- Optional: `zenity` (GUI dialogs), `wl-clipboard` (`wl-copy` / `wl-paste` for Wayland), `xdotool` (window focus for APK dialogs)
 
 Quick install (Debian/Ubuntu):
 
 ```bash
 sudo apt update
-sudo apt install -y waydroid weston adb zenity curl wget git python3 python3-pip wl-clipboard
+sudo apt install -y waydroid weston adb zenity curl wget git python3 python3-pip wl-clipboard xdotool
 ```
 
 ---
@@ -102,7 +104,7 @@ Install and uninstall actions are logged separately (per-APK results and batch s
 ---
 
 ## 🧾 Changelog & Releases
-See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.5.1** (2026-02-03).
+See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.6.0** (2026-03-04).
 
 ---
 

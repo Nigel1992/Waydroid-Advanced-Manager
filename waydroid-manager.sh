@@ -1,6 +1,22 @@
 
 #!/bin/bash
 
+# Clear terminal on startup
+clear
+
+# ---------------- COLORS & UI ----------------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# Embedded version (single source of truth inside script)
+SCRIPT_VERSION="0.6.0"
+RELEASE_DATE="2026-03-04"
+
 # --- Update Check on Launch ---
 get_latest_version_from_github() {
     local raw_url="https://raw.githubusercontent.com/Nigel1992/Waydroid-Advanced-Manager/main/waydroid-manager.sh"
@@ -11,11 +27,24 @@ get_latest_version_from_github() {
 
 check_for_updates() {
     local latest_version
+    local github_url="https://github.com/Nigel1992/Waydroid-Advanced-Manager"
     latest_version=$(get_latest_version_from_github)
     if [ -n "$latest_version" ]; then
         if [ "$SCRIPT_VERSION" != "$latest_version" ]; then
             echo -e "${YELLOW}Update available!${NC} Current: ${SCRIPT_VERSION}, Latest: ${latest_version}"
-            echo -e "Download the latest script from GitHub."
+            echo -e "Download the latest script from GitHub:"
+            echo -e "${CYAN}${github_url}${NC}"
+            echo ""
+            read -p "Open GitHub page in your browser? (y/N): " open_browser
+            if [[ "$open_browser" =~ ^[Yy]$ ]]; then
+                if command -v xdg-open >/dev/null 2>&1; then
+                    xdg-open "$github_url" 2>/dev/null &
+                elif command -v open >/dev/null 2>&1; then
+                    open "$github_url" 2>/dev/null &
+                else
+                    echo -e "${RED}Could not detect a browser. Please open the URL manually.${NC}"
+                fi
+            fi
         else
             echo -e "${GREEN}Waydroid Manager is up to date.${NC} (v${SCRIPT_VERSION})"
         fi
@@ -27,15 +56,6 @@ check_for_updates() {
 }
 
 check_for_updates
-
-# ---------------- COLORS & UI ----------------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-YELLOW='\033[1;33m'
-BOLD='\033[1m'
-NC='\033[0m' 
 
 # ---------------- CONFIG ----------------
 CONNECTED_DEVICES=()
@@ -60,11 +80,6 @@ UNINSTALL_LOG="$LOG_DIR/uninstall.log"
 # Determine script path for version/date detection
 SCRIPT_PATH="$(readlink -f "$0")"
 SCRIPT_SELF_DIR="$(dirname "$SCRIPT_PATH")"
-
-
-# Embedded version (single source of truth inside script)
-SCRIPT_VERSION="0.5.1"
-RELEASE_DATE="2026-02-03"
 
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
@@ -553,22 +568,46 @@ stop_waydroid() {
     sleep 1.5
 }
 
+# Focus the Weston compositor window, then bring zenity dialog to front
+focus_waydroid_window() {
+    if command -v xdotool >/dev/null 2>&1; then
+        local wid
+        # Match Weston by window class (not name, to avoid matching browser/editor windows)
+        wid=$(xdotool search --class "weston" 2>/dev/null | head -1)
+        if [ -z "$wid" ]; then
+            # Fallback: match by class "Weston" (capitalised)
+            wid=$(xdotool search --class "Weston" 2>/dev/null | head -1)
+        fi
+        if [ -n "$wid" ]; then
+            xdotool windowactivate --sync "$wid" 2>/dev/null
+            sleep 0.3
+            return 0
+        fi
+    fi
+    return 1
+}
+
 install_apk() {
     print_header
     if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
         wait_and_connect_adb $(get_waydroid_ip) || return
     fi
+
+    # Focus Weston compositor window first, then show zenity on top
+    focus_waydroid_window
+
     local APK=""
-    local install_method=$(zenity --list --radiolist --title="APK Install Method" --text="Choose how to install the APK" --column="Select" --column="Method" TRUE "Select Local APK" FALSE "Install from URL" FALSE "Batch Install from Directory" --height=200 --width=400 2>/dev/null)
+    local install_method
+    install_method=$(zenity --list --radiolist --title="APK Install Method" --text="Choose how to install the APK" --column="Select" --column="Method" TRUE "Select Local APK" FALSE "Install from URL" FALSE "Batch Install from Directory" --height=200 --width=400 --modal 2>/dev/null)
     if [ "$install_method" = "Select Local APK" ]; then
-        APK=$(zenity --file-selection --title="Select APK" --file-filter="*.apk" 2>/dev/null)
+        APK=$(zenity --file-selection --title="Select APK" --file-filter="*.apk" --modal 2>/dev/null)
         if [ -f "$APK" ]; then
             print_status "Installing $(basename "$APK")..."
             adb -s "${CONNECTED_DEVICES[0]}" install -r "$APK"
             print_success "Done."
         fi
     elif [ "$install_method" = "Install from URL" ]; then
-        local APK_URL=$(zenity --entry --title="APK URL" --text="Enter direct APK URL (https://.../app.apk)" --width=500 2>/dev/null)
+        local APK_URL=$(zenity --entry --title="APK URL" --text="Enter direct APK URL (https://.../app.apk)" --width=500 --modal 2>/dev/null)
         if [[ "$APK_URL" =~ ^https?://.*\.apk$ ]]; then
             local TMP_APK="/tmp/waydroid_apk_$$.apk"
             print_status "Downloading APK..."
@@ -592,7 +631,7 @@ install_apk() {
             print_error "Invalid URL. Must end with .apk"
         fi
     elif [ "$install_method" = "Batch Install from Directory" ]; then
-        local APK_DIR=$(zenity --file-selection --title="Select Directory with APKs" --directory 2>/dev/null)
+        local APK_DIR=$(zenity --file-selection --title="Select Directory with APKs" --directory --modal 2>/dev/null)
         if [ -d "$APK_DIR" ]; then
             install_apks_dir_cli "$APK_DIR"
         else
@@ -687,18 +726,7 @@ install_apk_cli() {
 
 self_update() {
     print_header
-    if [ ! -d "$SCRIPT_SELF_DIR/.git" ]; then
-        print_error "Self-update requires a git clone of this script."
-        read -n 1 -p "Press any key to return..."
-        return
-    fi
-    print_status "Updating script from git..."
-    if git -C "$SCRIPT_SELF_DIR" pull --ff-only; then
-        print_success "Update complete."
-    else
-        print_error "Update failed."
-    fi
-    read -n 1 -p "Press any key to return..."
+    check_for_updates
 }
 
 # Batch install all APKs in a directory (CLI-friendly)
@@ -1600,10 +1628,67 @@ rotate_logs
 parse_args "$@"
 check_dependencies || exit 1
 
+# --- Auto-detect running Waydroid / ADB devices on launch ---
+detect_existing_session() {
+    local wd_running=0
+    local wd_ip=""
+
+    # Check if Waydroid is already running
+    if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+        wd_running=1
+        wd_ip=$(get_waydroid_ip)
+    fi
+
+    # Check for any ADB devices already connected
+    local existing_devices
+    existing_devices=$(adb devices 2>/dev/null | awk 'NR>1 && $1!="" {print $1}')
+
+    if [ "$wd_running" -eq 1 ] || [ -n "$existing_devices" ]; then
+        clear
+        echo -e "${GREEN}${BOLD}━━━ EXISTING SESSION DETECTED ━━━${NC}"
+        if [ "$wd_running" -eq 1 ]; then
+            echo -e "${GREEN}  ✓ Waydroid is running${NC}"
+            [ -n "$wd_ip" ] && echo -e "${CYAN}  IP: ${wd_ip}${NC}"
+        fi
+        if [ -n "$existing_devices" ]; then
+            echo -e "${CYAN}  ADB device(s):${NC}"
+            echo "$existing_devices" | while read -r dev; do
+                echo -e "    ${BOLD}${dev}${NC}"
+            done
+        fi
+        echo ""
+        read -p "Connect to existing session? (Y/n): " connect_choice
+        if [[ ! "$connect_choice" =~ ^[Nn]$ ]]; then
+            if [ -n "$wd_ip" ] && [[ "$wd_ip" =~ ^[0-9] ]]; then
+                local target="$wd_ip:5555"
+                adb connect "$target" >/dev/null 2>&1
+                sleep 1
+                if adb_device_connected "$target"; then
+                    CONNECTED_DEVICES=("$target")
+                    echo -e "${GREEN}  ✓ Connected to ${target}${NC}"
+                else
+                    echo -e "${YELLOW}  ⚠ Could not connect via ADB to ${target}${NC}"
+                fi
+            elif [ -n "$existing_devices" ]; then
+                # Use the first already-connected device
+                local first_dev
+                first_dev=$(echo "$existing_devices" | head -1)
+                CONNECTED_DEVICES=("$first_dev")
+                echo -e "${GREEN}  ✓ Using existing ADB device: ${first_dev}${NC}"
+            fi
+        else
+            echo -e "${CYAN}  Skipped. You can connect later from the menu.${NC}"
+        fi
+        sleep 1
+    fi
+}
+
+detect_existing_session
+
 # ---------------- MAIN MENU ----------------
 while true; do
     print_header
-    echo -e " ${BOLD}1)${NC} ${GREEN}START/RESTART${NC} Waydroid Full Stack"
+    echo -e " ${BOLD}1)${NC} ${GREEN}START/RESTART${NC} Waydroid"
     echo -e "  ${BOLD}2)${NC} ${RED}STOP${NC} Waydroid & Weston"
     echo -e "  ${BOLD}3)${NC} ${CYAN}INSTALL${NC} APK File"
     echo -e "  ${BOLD}4)${NC} ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc. by casualsnek/waydroid_script)"
@@ -1614,7 +1699,7 @@ while true; do
     echo -e "  ${BOLD}9)${NC} ${MAGENTA}COPY/PASTE${NC} to Android"
     echo -e "  ${BOLD}10)${NC} ${CYAN}STATUS${NC}"
     echo -e "  ${BOLD}11)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
-    echo -e "  ${BOLD}12)${NC} ${MAGENTA}SELF UPDATE${NC}"
+    echo -e "  ${BOLD}12)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
     echo -e "  ${BOLD}13)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     

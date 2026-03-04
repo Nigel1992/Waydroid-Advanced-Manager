@@ -1,3 +1,22 @@
+# 2026-03-04
+
+## Release v0.6.0
+
+### Added
+- **Auto-detect existing sessions on launch**: The script now checks if Waydroid is already running or ADB devices are connected at startup, displays session info, and offers to connect automatically.
+- **Update check shows GitHub URL**: When an update is available, the GitHub repository URL is displayed in the console and the user is prompted to open it in their default browser (`xdg-open`).
+- **Weston compositor window focus**: Before showing APK install dialogs, the Weston compositor window is brought to the foreground via `xdotool` (matched by window class, not name, to avoid focusing unrelated windows).
+- **Clear terminal on startup**: The terminal is cleared before the script begins for a clean launch experience.
+
+### Changed
+- **Option 1 renamed**: "START/RESTART Waydroid Full Stack" → "START/RESTART Waydroid".
+- **Option 12 changed**: "SELF UPDATE" (git pull) replaced with "CHECK FOR UPDATES" — now runs the same GitHub version check as the startup update prompt.
+- **Zenity dialogs use `--modal`**: All APK install zenity dialogs now use `--modal` to stay on top of the Weston window.
+- **Fix: Version/colors defined before update check**: `SCRIPT_VERSION`, `RELEASE_DATE`, and color variables are now defined at the top of the script before `check_for_updates()` is called, fixing the empty "Current:" display in the update prompt.
+
+### Dependencies
+- `xdotool` is now used (optional) for Weston window focusing. Install with `sudo apt install xdotool`.
+
 # 2026-02-03
 
 ## Release v0.5.1
