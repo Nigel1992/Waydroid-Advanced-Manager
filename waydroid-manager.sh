@@ -2613,33 +2613,34 @@ while true; do
     echo -e "  ${BOLD}25)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
 
-    # Print initial status + separator + prompt (3 lines total)
-    _print_status_block() {
+    # Print initial status line (this is the only line that refreshes)
+    _get_status_text() {
         local anydev
         anydev=$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}' | head -n1 || true)
         if [ -n "$anydev" ]; then
             CONNECTED_DEVICES=("$anydev")
-            printf "\033[2K\r%b\n" "${GREEN} ● ACTIVE:${NC} ${anydev}"
+            printf "%b" "${GREEN} ● ACTIVE:${NC} ${anydev}"
         elif [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
             local dev="${CONNECTED_DEVICES[0]}"
             local state
             state=$(adb devices 2>/dev/null | awk -v d="$dev" '$1==d {print $2}' || true)
             if [ "$state" = "device" ]; then
-                printf "\033[2K\r%b\n" "${GREEN} ● ACTIVE:${NC} ${dev}"
+                printf "%b" "${GREEN} ● ACTIVE:${NC} ${dev}"
             elif [ -n "$state" ]; then
-                printf "\033[2K\r%b\n" "${YELLOW} ● ${state^^}:${NC} ${dev}"
+                printf "%b" "${YELLOW} ● ${state^^}:${NC} ${dev}"
             else
                 CONNECTED_DEVICES=()
-                printf "\033[2K\r%b\n" "${RED} ● STATUS:${NC} Disconnected"
+                printf "%b" "${RED} ● STATUS:${NC} Disconnected"
             fi
         else
-            printf "\033[2K\r%b\n" "${RED} ● STATUS:${NC} Disconnected"
+            printf "%b" "${RED} ● STATUS:${NC} Disconnected"
         fi
-        printf "\033[2K\r%b\n" "${CYAN}==================================================${NC}"
-        printf "\033[2K\r"
     }
 
-    _print_status_block
+    # Line layout: status (line -2), separator (line -1), prompt (current line)
+    _get_status_text
+    echo ""
+    echo -e "${CYAN}==================================================${NC}"
 
     # Read input with 1-second timeout to allow live status refresh
     CHOICE=""
@@ -2647,9 +2648,12 @@ while true; do
         if read -t 1 -p "Selection: " CHOICE 2>/dev/null; then
             break
         fi
-        # Move cursor up 3 lines (prompt + separator + status) and reprint
-        printf "\033[3A"
-        _print_status_block
+        # Save cursor, move up 2 lines to status line, clear & rewrite, restore cursor
+        printf "\033[s"         # save cursor position (on prompt line)
+        printf "\033[2A"        # move up 2 lines to status line
+        printf "\033[2K\r"      # clear that line
+        _get_status_text        # print updated status
+        printf "\033[u"         # restore cursor back to prompt line
     done
 
     # Helper: require Waydroid running
