@@ -7,15 +7,6 @@
 [![License](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge&color=yellow)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/stargazers)
 
-
----
-## 🆕 What's New in v0.8.0
-
-- **Resource Monitor**: Now updates in-place, showing live CPU/RAM/Disk stats without scrolling.
-- **Session Attach Fixes**: Attaching to an existing ADB session now enables all features (no more "Waydroid not running" errors).
-- **Improved Session Detection**: Smarter fallback logic for ADB device adoption and session status.
-- **Bug Fixes**: Quoting, session attach, monitor display, and syntax issues resolved.
-
 **The ultimate all-in-one terminal toolkit for Waydroid power users.**
 
 Start, stop, manage apps, transfer files, capture screenshots, record screens, view logs — and much more — all from a beautiful, organized CLI with safety checks and graphical dialog support.
@@ -43,6 +34,13 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 ---
 
 ## ✨ Features at a Glance
+
+### 🆕 What's New in 0.8.0
+
+- **Realtime Resource Monitor**: Option 19 now shows live CPU, RAM, and Disk usage, updating in-place every second for a true dashboard experience.
+- **Session Attach Fix**: Menu options now work after attaching to an existing ADB session, even if Waydroid status is not RUNNING.
+- **Robust ADB detection**: Improved fallback logic for session detection and device connection.
+- **Bugfixes**: No more false "Waydroid is not running" errors when attached; resource monitor no longer scrolls, but updates in-place.
 
 ### 🟢 Core
 | Feature | Description |
@@ -79,6 +77,7 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 | 🗑 **Clear App Data** | Wipe all data or just cache for any app |
 | 🚀 **Quick Launch** | Launch any installed app by package name |
 | ℹ️ **Device Info** | Android version, display, storage, memory, network, uptime |
+| 🟢 **Realtime Resource Monitor** | NEW: Live CPU/RAM/Disk usage updates in-place every second (option 19) |
 
 ### 🔒 Safety & Automation
 | Feature | Description |
