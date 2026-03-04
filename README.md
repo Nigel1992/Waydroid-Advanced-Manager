@@ -147,9 +147,9 @@ The interactive menu is organized into **5 sections** with **23 options**:
 
 ```
 ── CORE ──
- 1)  ADB SHELL ACCESS (Direct)
- 2)  START/RESTART Waydroid
- 3)  STOP Waydroid & Weston
+ 1)  START/RESTART Waydroid
+ 2)  STOP Waydroid & Weston
+ 3)  ADB SHELL ACCESS (Direct)
  4)  INSTALL APK File
  5)  WAYDROID SCRIPT (GApps, Magisk, etc.)
 

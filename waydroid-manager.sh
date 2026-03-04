@@ -2285,9 +2285,9 @@ waydroid_resource_monitor() {
 while true; do
     print_header
     echo -e " ${BOLD}${GREEN}── CORE ──${NC}"
-    echo -e "  ${BOLD}1)${NC}  ${BLUE}ADB SHELL ACCESS${NC} (Direct)"
-    echo -e "  ${BOLD}2)${NC}  ${GREEN}START/RESTART${NC} Waydroid"
-    echo -e "  ${BOLD}3)${NC}  ${RED}STOP${NC} Waydroid & Weston"
+    echo -e "  ${BOLD}1)${NC}  ${GREEN}START/RESTART${NC} Waydroid"
+    echo -e "  ${BOLD}2)${NC}  ${RED}STOP${NC} Waydroid & Weston"
+    echo -e "  ${BOLD}3)${NC}  ${BLUE}ADB SHELL ACCESS${NC} (Direct)"
     echo -e "  ${BOLD}4)${NC}  ${CYAN}INSTALL${NC} APK File"
     echo -e "  ${BOLD}5)${NC}  ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc.)"
     echo ""
@@ -2359,9 +2359,9 @@ while true; do
     }
 
     case "$CHOICE" in
-        1) _require_running && adb_shell_access ;;
-        2) restart_waydroid ;;
-        3) _require_running && stop_waydroid ;;
+        1) restart_waydroid ;;
+        2) _require_running && stop_waydroid ;;
+        3) _require_running && adb_shell_access ;;
         4) _require_running && install_apk ;;
         5) _require_running && run_waydroid_script ;;
         6) _require_running && { print_header; adb devices -l; read -n 1 -p "Press any key..."; } ;;
