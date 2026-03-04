@@ -1,7 +1,6 @@
 # 🚀 Waydroid Advanced Manager  
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/zxUq3afdn8)
-[![version](https://img.shields.io/github/v/tag/Nigel1992/Waydroid-Advanced-Manager?label=version&style=flat-square)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/releases)
 [![license](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=flat-square)](LICENSE)
 
 A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid and Weston, manage ADB connections, install APKs, and send clipboard text into Android — all from your terminal with helpful prompts and safety checks.
