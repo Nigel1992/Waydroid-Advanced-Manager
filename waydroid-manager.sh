@@ -2609,9 +2609,8 @@ while true; do
     echo -e " ${BOLD}${MAGENTA}── SYSTEM ──${NC}"
     echo -e "  ${BOLD}22)${NC} ${CYAN}STATUS${NC}"
     echo -e "  ${BOLD}23)${NC} ${GREEN}RESOURCE MONITOR${NC} (CPU/RAM/Disk)"
-    echo -e "  ${BOLD}24)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
-    echo -e "  ${BOLD}25)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
-    echo -e "  ${BOLD}26)${NC} ${YELLOW}EXIT${NC}"
+    echo -e "  ${BOLD}24)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
+    echo -e "  ${BOLD}25)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -2678,9 +2677,8 @@ while true; do
         21) accessibility_tools ;;
         22) show_status ;;
         23) _require_running && waydroid_resource_monitor ;;
-        24) set_theme_interactive ;;
-        25) self_update ;;
-        26) clear; exit 0 ;;
+        24) self_update ;;
+        25) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
