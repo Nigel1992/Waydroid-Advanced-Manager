@@ -2322,6 +2322,9 @@ while true; do
     echo -e "  ${BOLD}16)${NC} 🗑  ${RED}CLEAR APP DATA${NC}/Cache"
     echo -e "  ${BOLD}17)${NC} 🚀 ${GREEN}QUICK LAUNCH${NC} App"
     echo -e "  ${BOLD}18)${NC} ℹ️  ${CYAN}DEVICE INFO${NC}"
+    echo -e "  ${BOLD}24)${NC} 🔍 ${MAGENTA}APK DOWNLOADER${NC} (Search & Download)"
+    echo -e "  ${BOLD}25)${NC} 🎨 ${CYAN}THEME CUSTOMIZATION${NC} (More Schemes)"
+    echo -e "  ${BOLD}26)${NC} ♿ ${YELLOW}ACCESSIBILITY TOOLS${NC} (Contrast, Magnifier, TTS)"
     echo ""
     echo -e " ${BOLD}${MAGENTA}── SYSTEM ──${NC}"
     echo -e "  ${BOLD}19)${NC} ${CYAN}STATUS${NC}"
@@ -2393,8 +2396,46 @@ while true; do
         19) show_status ;;
         20) _require_running && waydroid_resource_monitor ;;
         21) set_theme_interactive ;;
-        22) self_update ;;
-        23) clear; exit 0 ;;
+        22) apk_downloader_menu ;;
+        23) theme_customization_menu ;;
+        24) accessibility_tools_menu ;;
+        25) self_update ;;
+        26) clear; exit 0 ;;
+        # --- APK Downloader Stub ---
+        apk_downloader_menu() {
+            print_header
+            echo -e "${MAGENTA}APK Downloader${NC}"
+            echo "Enter the app name or package to search for:"
+            read -r app_query
+            echo "Searching for APKs for: $app_query"
+            echo "(Stub: This will search trusted sources and download the APK in future versions.)"
+            read -n 1 -p "Press any key to return to menu..."
+        }
+
+        # --- Theme Customization Stub ---
+        theme_customization_menu() {
+            print_header
+            echo -e "${CYAN}Theme Customization${NC}"
+            echo "Choose a color scheme:"
+            echo "  1) Default"
+            echo "  2) Solarized"
+            echo "  3) Dracula"
+            echo "  4) High Contrast"
+            echo "(Stub: More themes will be available in future versions.)"
+            read -n 1 -p "Press any key to return to menu..."
+        }
+
+        # --- Accessibility Tools Stub ---
+        accessibility_tools_menu() {
+            print_header
+            echo -e "${YELLOW}Accessibility Tools${NC}"
+            echo "Select an accessibility feature:"
+            echo "  1) High-contrast mode"
+            echo "  2) Magnifier (enlarge menu text)"
+            echo "  3) Text-to-speech (read menu aloud)"
+            echo "(Stub: Accessibility features will be implemented in future versions.)"
+            read -n 1 -p "Press any key to return to menu..."
+        }
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
