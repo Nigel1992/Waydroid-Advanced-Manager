@@ -15,7 +15,7 @@ NC='\033[0m'
 
 # Embedded version (single source of truth inside script)
 SCRIPT_VERSION="0.7.0"
-RELEASE_DATE="2025-06-13"
+RELEASE_DATE="2026-03-04"
 
 # --- Update Check on Launch ---
 get_latest_version_from_github() {
@@ -333,7 +333,7 @@ confirm() {
         return 0
     fi
     if command -v zenity >/dev/null 2>&1; then
-        zenity --question --title="Confirm" --text="$msg" --width=400 2>/dev/null
+        zenity --question --title="Confirm" --text="$msg" --width=400 --modal 2>/dev/null
         return $?  # 0 if Yes
     else
         read -p "$msg [y/N]: " ans
@@ -837,9 +837,9 @@ set_theme_cli() {
     # Show confirmation: prefer zenity if available, but do not block CLI calls
     if command -v zenity >/dev/null 2>&1; then
         if [ "${no_pause}" = "no-pause" ]; then
-            zenity --info --title="Theme Changed" --text="Theme set to $THEME and saved to $CONFIG_FILE" --width=300 2>/dev/null &
+            zenity --info --title="Theme Changed" --text="Theme set to $THEME and saved to $CONFIG_FILE" --width=300 --modal 2>/dev/null &
         else
-            zenity --info --title="Theme Changed" --text="Theme set to $THEME and saved to $CONFIG_FILE" --width=300 2>/dev/null
+            zenity --info --title="Theme Changed" --text="Theme set to $THEME and saved to $CONFIG_FILE" --width=300 --modal 2>/dev/null
         fi
     fi
 
@@ -855,7 +855,7 @@ set_theme_cli() {
 set_theme_interactive() {
     local choice
     if command -v zenity >/dev/null 2>&1; then
-        choice=$(zenity --list --radiolist --title="Select Theme" --text="Choose a terminal theme" --column="Select" --column="Theme" TRUE "light" FALSE "dark" --height=200 --width=300 2>/dev/null)
+        choice=$(zenity --list --radiolist --title="Select Theme" --text="Choose a terminal theme" --column="Select" --column="Theme" TRUE "light" FALSE "dark" --height=200 --width=300 --modal 2>/dev/null)
         if [ -n "$choice" ]; then
             # use no-pause so set_theme_cli does not block; we pause once here
             set_theme_cli "$choice" "no-pause"
@@ -972,9 +972,9 @@ uninstall_apps_menu() {
             6)
                 # Batch uninstall: let user select a file or multi-select packages via zenity
                 if command -v zenity >/dev/null 2>&1; then
-                    choice=$(zenity --list --radiolist --title="Batch Uninstall" --text="Choose method" --column="Select" --column="Method" TRUE "Select File (.txt with package per line)" FALSE "Multi-select from installed apps" --height=200 --width=500 2>/dev/null)
+                    choice=$(zenity --list --radiolist --title="Batch Uninstall" --text="Choose method" --column="Select" --column="Method" TRUE "Select File (.txt with package per line)" FALSE "Multi-select from installed apps" --height=200 --width=500 --modal 2>/dev/null)
                     if [ "$choice" = "Select File (.txt with package per line)" ]; then
-                        FILE=$(zenity --file-selection --title="Select package list file" 2>/dev/null)
+                        FILE=$(zenity --file-selection --title="Select package list file" --modal 2>/dev/null)
                         if [ -n "$FILE" ] && [ -f "$FILE" ]; then
                             uninstall_list_cli "$FILE"
                         else
@@ -983,7 +983,7 @@ uninstall_apps_menu() {
                     else
                         # multi-select installed apps
                         pkgs=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | sort)
-                        selected=$(echo -e "$pkgs" | zenity --list --multiple --title="Select packages to uninstall" --column="Package" --height=600 --width=600 2>/dev/null)
+                        selected=$(echo -e "$pkgs" | zenity --list --multiple --title="Select packages to uninstall" --column="Package" --height=600 --width=600 --modal 2>/dev/null)
                         if [ -n "$selected" ]; then
                             IFS="," read -r -a arr <<< "$selected"
                             tmpfile="/tmp/waydroid_uninstall_$$.txt"
@@ -1214,7 +1214,7 @@ uninstall_by_search() {
     fi
 
     local selected_app
-    selected_app=$(echo -e "$matches" | zenity --list --title="Select App to Uninstall" --column="Package Name" --height=500 --width=600 2>/dev/null)
+    selected_app=$(echo -e "$matches" | zenity --list --title="Select App to Uninstall" --column="Package Name" --height=500 --width=600 --modal 2>/dev/null)
     if [ -z "$selected_app" ]; then
         print_status "Cancelled"
         sleep 1
@@ -1283,7 +1283,7 @@ uninstall_from_list() {
         echo -e "${CYAN}Date:${NC} $(date '+%Y-%m-%d %H:%M:%S')\n"
 
         # Ask user: all apps or user apps
-        app_type=$(zenity --list --radiolist --title="App List Type" --text="Show all apps or only user-installed?" --column="Select" --column="Type" TRUE "User Installed" FALSE "All Apps" --height=200 --width=400 2>/dev/null)
+        app_type=$(zenity --list --radiolist --title="App List Type" --text="Show all apps or only user-installed?" --column="Select" --column="Type" TRUE "User Installed" FALSE "All Apps" --height=200 --width=400 --modal 2>/dev/null)
         if [ -z "$app_type" ]; then
             print_status "Cancelled"
             sleep 1
@@ -1314,7 +1314,7 @@ uninstall_from_list() {
         for pkg in "${apps_array[@]}"; do
             app_list_str+="$pkg\n"
         done
-        selected_app=$(echo -e "$app_list_str" | zenity --list --title="Select App to Uninstall" --column="Package Name" --height=500 --width=600 2>/dev/null)
+        selected_app=$(echo -e "$app_list_str" | zenity --list --title="Select App to Uninstall" --column="Package Name" --height=500 --width=600 --modal 2>/dev/null)
         if [ -z "$selected_app" ]; then
             print_status "Cancelled"
             sleep 1
@@ -2074,12 +2074,18 @@ quick_launch_app() {
     fi
 
     print_status "Launching $pkg..."
-    # Use monkey to launch the app's main activity
-    adb -s "${CONNECTED_DEVICES[0]}" shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 2>/dev/null
-    if [ $? -eq 0 ]; then
+    # Use 'am start' to resolve and launch the app's main activity
+    local launch_output
+    launch_output=$(adb -s "${CONNECTED_DEVICES[0]}" shell am start -n "$(adb -s "${CONNECTED_DEVICES[0]}" shell cmd package resolve-activity --brief "$pkg" 2>/dev/null | tail -1)" 2>&1)
+    if echo "$launch_output" | grep -qi "error\|exception\|not found"; then
+        # Fallback: use am start with category launcher
+        launch_output=$(adb -s "${CONNECTED_DEVICES[0]}" shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$pkg" 2>&1)
+    fi
+    if echo "$launch_output" | grep -q "Starting:"; then
         print_success "Launched: $pkg"
     else
         print_error "Failed to launch $pkg"
+        echo -e "${YELLOW}$launch_output${NC}"
     fi
     read -n 1 -p "Press any key..."
 }
