@@ -2637,24 +2637,13 @@ while true; do
         fi
     }
 
-    # Line layout: status (line -2), separator (line -1), prompt (current line)
+    # Status line
     _get_status_text
     echo ""
     echo -e "${CYAN}==================================================${NC}"
 
-    # Read input with 1-second timeout to allow live status refresh
-    CHOICE=""
-    while true; do
-        if read -t 1 -p "Selection: " CHOICE 2>/dev/null; then
-            break
-        fi
-        # Save cursor, move up 2 lines to status line, clear & rewrite, restore cursor
-        printf "\033[s"         # save cursor position (on prompt line)
-        printf "\033[2A"        # move up 2 lines to status line
-        printf "\033[2K\r"      # clear that line
-        _get_status_text        # print updated status
-        printf "\033[u"         # restore cursor back to prompt line
-    done
+    # Read input; on timeout the outer loop redraws with fresh status
+    read -r -p "Selection: " CHOICE 2>/dev/null || continue
 
     # Helper: require Waydroid running
     # Accepts an active ADB-connected device as a valid running session
