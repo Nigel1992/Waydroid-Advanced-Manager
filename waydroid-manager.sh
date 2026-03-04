@@ -1,3 +1,41 @@
+# --- ADB Shell Access ---
+adb_shell_access() {
+    print_header
+    local dev="${CONNECTED_DEVICES[0]}"
+    if [ -z "$dev" ]; then
+        print_error "No ADB device connected."
+        sleep 2
+        return
+    fi
+    echo -e "${BOLD}${BLUE}Opening interactive ADB shell for device: ${dev}${NC}"
+    echo -e "Type 'exit' to return to the menu.\n"
+    sleep 1
+    adb -s "$dev" shell
+}
+
+show_help() {
+    cat <<EOF
+Waydroid Advanced Manager
+Usage: $0 [options]
+
+Options:
+  --version, -v                Show version and exit
+  --help, -h                   Show this help and exit
+  --debug                      Enable debug logging
+  --restart                    Restart Waydroid stack
+  --stop                       Stop Waydroid and Weston
+  --status                     Show system status
+  --install-apk <path|url>     Install APK from file or URL (supports Content-Length verification & sha256 logging)
+  --install-apks-dir <dir>     Install all APKs from a directory (batch summary & logs)
+  --uninstall-list <file>     Uninstall packages from a newline-delimited file
+  --yes, -y                    Auto-confirm destructive actions (useful for scripting)
+  --set-dpi <dpi>              Set display density
+  --set-res <WxH>              Set display resolution
+  --list-apps-export [file]    Export installed apps list
+  --theme <dark|light>         Set and persist terminal theme (light or dark)
+  --self-update                Update script from git
+EOF
+}
 #!/bin/bash
 # Clear terminal on startup
 clear
@@ -2247,36 +2285,37 @@ waydroid_resource_monitor() {
 while true; do
     print_header
     echo -e " ${BOLD}${GREEN}── CORE ──${NC}"
-    echo -e "  ${BOLD}1)${NC}  ${GREEN}START/RESTART${NC} Waydroid"
-    echo -e "  ${BOLD}2)${NC}  ${RED}STOP${NC} Waydroid & Weston"
-    echo -e "  ${BOLD}3)${NC}  ${CYAN}INSTALL${NC} APK File"
-    echo -e "  ${BOLD}4)${NC}  ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc.)"
+    echo -e "  ${BOLD}1)${NC}  ${BLUE}ADB SHELL ACCESS${NC} (Direct)"
+    echo -e "  ${BOLD}2)${NC}  ${GREEN}START/RESTART${NC} Waydroid"
+    echo -e "  ${BOLD}3)${NC}  ${RED}STOP${NC} Waydroid & Weston"
+    echo -e "  ${BOLD}4)${NC}  ${CYAN}INSTALL${NC} APK File"
+    echo -e "  ${BOLD}5)${NC}  ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc.)"
     echo ""
     echo -e " ${BOLD}${BLUE}── ADB ──${NC}"
-    echo -e "  ${BOLD}5)${NC}  ${BLUE}LIST${NC} ADB Devices"
-    echo -e "  ${BOLD}6)${NC}  ${YELLOW}RECONNECT${NC} ADB"
+    echo -e "  ${BOLD}6)${NC}  ${BLUE}LIST${NC} ADB Devices"
+    echo -e "  ${BOLD}7)${NC}  ${YELLOW}RECONNECT${NC} ADB"
     echo ""
     echo -e " ${BOLD}${CYAN}── SETTINGS & APPS ──${NC}"
-    echo -e "  ${BOLD}7)${NC}  ${GREEN}DISPLAY SETTINGS${NC} (Resolution, Density)"
-    echo -e "  ${BOLD}8)${NC}  ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
-    echo -e "  ${BOLD}9)${NC}  ${MAGENTA}COPY/PASTE${NC} to Android"
+    echo -e "  ${BOLD}8)${NC}  ${GREEN}DISPLAY SETTINGS${NC} (Resolution, Density)"
+    echo -e "  ${BOLD}9)${NC}  ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
+    echo -e "  ${BOLD}10)${NC}  ${MAGENTA}COPY/PASTE${NC} to Android"
     echo ""
     echo -e " ${BOLD}${YELLOW}── TOOLS ──${NC}"
-    echo -e "  ${BOLD}10)${NC} 📸 ${CYAN}SCREENSHOT${NC}"
-    echo -e "  ${BOLD}11)${NC} 🎬 ${RED}SCREEN RECORDING${NC}"
-    echo -e "  ${BOLD}12)${NC} 📂 ${GREEN}FILE TRANSFER${NC} (Push/Pull)"
-    echo -e "  ${BOLD}13)${NC} 📋 ${YELLOW}LOGCAT VIEWER${NC}"
-    echo -e "  ${BOLD}14)${NC} ❄️  ${BLUE}FREEZE/DISABLE${NC} Apps"
-    echo -e "  ${BOLD}15)${NC} 🗑  ${RED}CLEAR APP DATA${NC}/Cache"
-    echo -e "  ${BOLD}16)${NC} 🚀 ${GREEN}QUICK LAUNCH${NC} App"
-    echo -e "  ${BOLD}17)${NC} ℹ️  ${CYAN}DEVICE INFO${NC}"
+    echo -e "  ${BOLD}11)${NC} 📸 ${CYAN}SCREENSHOT${NC}"
+    echo -e "  ${BOLD}12)${NC} 🎬 ${RED}SCREEN RECORDING${NC}"
+    echo -e "  ${BOLD}13)${NC} 📂 ${GREEN}FILE TRANSFER${NC} (Push/Pull)"
+    echo -e "  ${BOLD}14)${NC} 📋 ${YELLOW}LOGCAT VIEWER${NC}"
+    echo -e "  ${BOLD}15)${NC} ❄️  ${BLUE}FREEZE/DISABLE${NC} Apps"
+    echo -e "  ${BOLD}16)${NC} 🗑  ${RED}CLEAR APP DATA${NC}/Cache"
+    echo -e "  ${BOLD}17)${NC} 🚀 ${GREEN}QUICK LAUNCH${NC} App"
+    echo -e "  ${BOLD}18)${NC} ℹ️  ${CYAN}DEVICE INFO${NC}"
     echo ""
     echo -e " ${BOLD}${MAGENTA}── SYSTEM ──${NC}"
-    echo -e "  ${BOLD}18)${NC} ${CYAN}STATUS${NC}"
-    echo -e "  ${BOLD}19)${NC} ${GREEN}RESOURCE MONITOR${NC} (CPU/RAM/Disk)"
-    echo -e "  ${BOLD}20)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
-    echo -e "  ${BOLD}21)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
-    echo -e "  ${BOLD}22)${NC} ${YELLOW}EXIT${NC}"
+    echo -e "  ${BOLD}19)${NC} ${CYAN}STATUS${NC}"
+    echo -e "  ${BOLD}20)${NC} ${GREEN}RESOURCE MONITOR${NC} (CPU/RAM/Disk)"
+    echo -e "  ${BOLD}21)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
+    echo -e "  ${BOLD}22)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
+    echo -e "  ${BOLD}23)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -2320,28 +2359,29 @@ while true; do
     }
 
     case "$CHOICE" in
-        1) restart_waydroid ;;
-        2) _require_running && stop_waydroid ;;
-        3) _require_running && install_apk ;;
-        4) _require_running && run_waydroid_script ;;
-        5) _require_running && { print_header; adb devices -l; read -n 1 -p "Press any key..."; } ;;
-        6) _require_running && wait_and_connect_adb $(get_waydroid_ip) ;;
-        7) _require_running && change_display_settings ;;
-        8) _require_running && uninstall_apps_menu ;;
-        9) _require_running && copy_paste_to_android ;;
-        10) _require_running && take_screenshot ;;
-        11) _require_running && record_screen ;;
-        12) _require_running && file_transfer_menu ;;
-        13) _require_running && logcat_viewer ;;
-        14) _require_running && freeze_apps_menu ;;
-        15) _require_running && clear_app_data ;;
-        16) _require_running && quick_launch_app ;;
-        17) _require_running && device_info_panel ;;
-        18) show_status ;;
-        19) _require_running && waydroid_resource_monitor ;;
-        20) set_theme_interactive ;;
-        21) self_update ;;
-        22) clear; exit 0 ;;
+        1) _require_running && adb_shell_access ;;
+        2) restart_waydroid ;;
+        3) _require_running && stop_waydroid ;;
+        4) _require_running && install_apk ;;
+        5) _require_running && run_waydroid_script ;;
+        6) _require_running && { print_header; adb devices -l; read -n 1 -p "Press any key..."; } ;;
+        7) _require_running && wait_and_connect_adb $(get_waydroid_ip) ;;
+        8) _require_running && change_display_settings ;;
+        9) _require_running && uninstall_apps_menu ;;
+        10) _require_running && copy_paste_to_android ;;
+        11) _require_running && take_screenshot ;;
+        12) _require_running && record_screen ;;
+        13) _require_running && file_transfer_menu ;;
+        14) _require_running && logcat_viewer ;;
+        15) _require_running && freeze_apps_menu ;;
+        16) _require_running && clear_app_data ;;
+        17) _require_running && quick_launch_app ;;
+        18) _require_running && device_info_panel ;;
+        19) show_status ;;
+        20) _require_running && waydroid_resource_monitor ;;
+        21) set_theme_interactive ;;
+        22) self_update ;;
+        23) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done

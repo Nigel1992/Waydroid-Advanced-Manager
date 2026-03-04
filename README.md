@@ -143,40 +143,41 @@ chmod +x waydroid-manager.sh
 
 ## 🖥️ Menu Overview
 
-The interactive menu is organized into **5 sections** with **22 options**:
+The interactive menu is organized into **5 sections** with **23 options**:
 
 ```
 ── CORE ──
- 1)  START/RESTART Waydroid
- 2)  STOP Waydroid & Weston
- 3)  INSTALL APK File
- 4)  WAYDROID SCRIPT (GApps, Magisk, etc.)
+ 1)  ADB SHELL ACCESS (Direct)
+ 2)  START/RESTART Waydroid
+ 3)  STOP Waydroid & Weston
+ 4)  INSTALL APK File
+ 5)  WAYDROID SCRIPT (GApps, Magisk, etc.)
 
 ── ADB ──
- 5)  LIST ADB Devices
- 6)  RECONNECT ADB
+ 6)  LIST ADB Devices
+ 7)  RECONNECT ADB
 
 ── SETTINGS & APPS ──
- 7)  DISPLAY SETTINGS (Resolution, Density)
- 8)  APP MANAGEMENT (Install/Uninstall)
- 9)  COPY/PASTE to Android
+ 8)  DISPLAY SETTINGS (Resolution, Density)
+ 9)  APP MANAGEMENT (Install/Uninstall)
+ 10)  COPY/PASTE to Android
 
 ── TOOLS ──
- 10) 📸 SCREENSHOT
- 11) 🎬 SCREEN RECORDING
- 12) 📂 FILE TRANSFER (Push/Pull)
- 13) 📋 LOGCAT VIEWER
- 14) ❄️  FREEZE/DISABLE Apps
- 15) 🗑  CLEAR APP DATA/Cache
- 16) 🚀 QUICK LAUNCH App
- 17) ℹ️  DEVICE INFO
+ 11) 📸 SCREENSHOT
+ 12) 🎬 SCREEN RECORDING
+ 13) 📂 FILE TRANSFER (Push/Pull)
+ 14) 📋 LOGCAT VIEWER
+ 15) ❄️  FREEZE/DISABLE Apps
+ 16) 🗑  CLEAR APP DATA/Cache
+ 17) 🚀 QUICK LAUNCH App
+ 18) ℹ️  DEVICE INFO
 
 ── SYSTEM ──
- 18) STATUS
- 19) RESOURCE MONITOR (CPU/RAM/Disk)
- 20) THEME (Light/Dark)
- 21) CHECK FOR UPDATES
- 22) EXIT
+ 19) STATUS
+ 20) RESOURCE MONITOR (CPU/RAM/Disk)
+ 21) THEME (Light/Dark)
+ 22) CHECK FOR UPDATES
+ 23) EXIT
 ```
 
 ---
