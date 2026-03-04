@@ -206,7 +206,10 @@ get_release_date() {
 }
 
 print_header() {
-    clear
+    # Skip clear when _skip_clear is set (used by main menu refresh)
+    if [ "${_skip_clear:-0}" -eq 0 ]; then
+        clear
+    fi
     local version=$(get_version)
     local release_date=$(get_release_date)
     # Theme display with emoji (standard mapping)
@@ -2575,8 +2578,18 @@ waydroid_resource_monitor() {
 }
 
 # ---------------- MAIN MENU ----------------
+_menu_first_draw=1
 while true; do
-    print_header
+    # First draw clears screen; refreshes overwrite in place (no flicker)
+    if [ "$_menu_first_draw" -eq 1 ]; then
+        _menu_first_draw=0
+        print_header
+    else
+        printf '\033[H'   # cursor to top-left, overwrite in place
+        _skip_clear=1
+        print_header
+        _skip_clear=0
+    fi
     echo -e " ${BOLD}${GREEN}── CORE ──${NC}"
     echo -e "  ${BOLD}1)${NC}  ${GREEN}START/RESTART${NC} Waydroid"
     echo -e "  ${BOLD}2)${NC}  ${RED}STOP${NC} Waydroid & Weston"
@@ -2641,10 +2654,16 @@ while true; do
     _get_status_text
     echo ""
     echo -e "${CYAN}==================================================${NC}"
+    printf '\033[J'  # clear any leftover lines below
 
-    # Read user selection
+    # Read with 2s timeout; on timeout, loop redraws with fresh status
     echo -n "Selection: "
-    read -r CHOICE
+    if ! read -r -t 2 CHOICE; then
+        continue
+    fi
+
+    # After user selects an action, force a full clear on next menu draw
+    _menu_first_draw=1
 
     # Helper: require Waydroid running
     # Accepts an active ADB-connected device as a valid running session
