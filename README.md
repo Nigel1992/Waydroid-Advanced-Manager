@@ -143,7 +143,7 @@ chmod +x waydroid-manager.sh
 
 ## 🖥️ Menu Overview
 
-The interactive menu is organized into **5 sections** with **21 options**:
+The interactive menu is organized into **5 sections** with **22 options**:
 
 ```
 ── CORE ──
@@ -173,9 +173,10 @@ The interactive menu is organized into **5 sections** with **21 options**:
 
 ── SYSTEM ──
  18) STATUS
- 19) THEME (Light/Dark)
- 20) CHECK FOR UPDATES
- 21) EXIT
+ 19) RESOURCE MONITOR (CPU/RAM/Disk)
+ 20) THEME (Light/Dark)
+ 21) CHECK FOR UPDATES
+ 22) EXIT
 ```
 
 ---
