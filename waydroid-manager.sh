@@ -2642,8 +2642,9 @@ while true; do
     echo ""
     echo -e "${CYAN}==================================================${NC}"
 
-    # Read input; on timeout the outer loop redraws with fresh status
-    read -r -p "Selection: " CHOICE 2>/dev/null || continue
+    # Read user selection
+    echo -n "Selection: "
+    read -r CHOICE
 
     # Helper: require Waydroid running
     # Accepts an active ADB-connected device as a valid running session
