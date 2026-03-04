@@ -1,8 +1,7 @@
-
 #!/bin/bash
-
 # Clear terminal on startup
 clear
+# --- Device Info Panel ---
 
 # ---------------- COLORS & UI ----------------
 RED='\033[0;31m'
@@ -14,7 +13,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Embedded version (single source of truth inside script)
-SCRIPT_VERSION="0.7.0"
+SCRIPT_VERSION="0.8.0"
 RELEASE_DATE="2026-03-04"
 
 # --- Update Check on Launch ---
@@ -1038,7 +1037,7 @@ list_installed_apps() {
     print_status "Fetching apps list..."
     echo ""
     
-    local apps=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://')
+    local apps=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | sort)
     local app_count=$(echo "$apps" | grep -c . || echo 0)
     
     if [ $app_count -gt 0 ]; then
@@ -2089,8 +2088,6 @@ quick_launch_app() {
     fi
     read -n 1 -p "Press any key..."
 }
-
-# --- Device Info Panel ---
 device_info_panel() {
     print_header
     echo -e "${BOLD}${CYAN}━━━ DEVICE INFORMATION ━━━${NC}\n"
@@ -2162,7 +2159,89 @@ device_info_panel() {
     read -n 1 -p "Press any key to return..."
 }
 
-# ===================== END NEW UTILITY FUNCTIONS =====================
+# --- Waydroid Resource Monitor (realtime) ---
+waydroid_resource_monitor() {
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+    local dev="${CONNECTED_DEVICES[0]}"
+    if [ -z "$dev" ]; then
+        print_error "No ADB device connected."
+        sleep 2
+        return
+    fi
+
+    # Draw header and a static frame once, then overwrite the dynamic lines in-place.
+    print_header
+    echo -e "${BOLD}${GREEN}┌─ WAYDROID RESOURCE MONITOR ────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  Device: ${BOLD}${dev}${NC}"
+    echo -e "${GREEN}│${NC}  IP:     ${BOLD}$(get_waydroid_ip)${NC}"
+    echo -e "${GREEN}├────────────────────────────────────────────┤${NC}"
+
+    # Save cursor at the start of the dynamic block. Use tput when available, fallback to ANSI.
+    if command -v tput >/dev/null 2>&1; then
+        tput sc
+        save_cmd="tput rc"
+    else
+        printf '\033[s'
+        save_cmd="printf '\\033[u'"
+    fi
+
+    # Print placeholders for the dynamic lines (these will be overwritten)
+    echo -e "${GREEN}│${NC}  CPU (system_server): ${BOLD}Loading...${NC}"
+    echo -e "${GREEN}│${NC}  RAM Used: ${BOLD}Loading...${NC}"
+    echo -e "${GREEN}│${NC}  Disk: ${BOLD}Loading...${NC}"
+    echo -e "${GREEN}└────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "${CYAN}Press any key to return. Updating every 1s...${NC}"
+
+    while true; do
+        # Restore to saved position at top of dynamic region
+        eval "$save_cmd"
+
+        # CPU (system_server)
+        local cpu_usage
+        cpu_usage=$(adb -s "$dev" shell top -b -n 1 2>/dev/null | awk '/system_server/ {print $9; exit}' || true)
+        if [ -n "$cpu_usage" ]; then
+            printf '\033[2K\r'
+            printf "%b\n" "${GREEN}│${NC}  CPU (system_server): ${BOLD}${cpu_usage}%${NC}"
+        else
+            printf '\033[2K\r'
+            printf "%b\n" "${GREEN}│${NC}  CPU (system_server): ${BOLD}Unavailable${NC}"
+        fi
+
+        # RAM
+        local mem_total mem_available mem_used
+        mem_total=$(adb -s "$dev" shell cat /proc/meminfo 2>/dev/null | awk '/MemTotal/ {print $2}' || true)
+        mem_available=$(adb -s "$dev" shell cat /proc/meminfo 2>/dev/null | awk '/MemAvailable/ {print $2}' || true)
+        if [ -n "$mem_total" ] && [ -n "$mem_available" ]; then
+            mem_used=$((mem_total - mem_available))
+            printf '\033[2K\r'
+            printf "%b\n" "${GREEN}│${NC}  RAM Used: ${BOLD}$((mem_used/1024)) MB${NC} / ${BOLD}$((mem_total/1024)) MB${NC}"
+        else
+            printf '\033[2K\r'
+            printf "%b\n" "${GREEN}│${NC}  RAM Used: ${BOLD}Unavailable${NC}"
+        fi
+
+        # Disk
+        local disk_info
+        disk_info=$(adb -s "$dev" shell df -h /data 2>/dev/null | tail -1 || true)
+        printf '\033[2K\r'
+        if [ -n "$disk_info" ]; then
+            printf "%b\n" "${GREEN}│${NC}  Disk: ${BOLD}${disk_info}${NC}"
+        else
+            printf "%b\n" "${GREEN}│${NC}  Disk: ${BOLD}Unavailable${NC}"
+        fi
+
+        # Wait 1 second for keypress; exit loop if a key is pressed.
+        if read -t 1 -n 1 -s key; then
+            break
+        fi
+    done
+
+    # Move cursor below the monitor before returning
+    echo ""
+}
 
 # ---------------- MAIN MENU ----------------
 while true; do
@@ -2194,9 +2273,10 @@ while true; do
     echo ""
     echo -e " ${BOLD}${MAGENTA}── SYSTEM ──${NC}"
     echo -e "  ${BOLD}18)${NC} ${CYAN}STATUS${NC}"
-    echo -e "  ${BOLD}19)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
-    echo -e "  ${BOLD}20)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
-    echo -e "  ${BOLD}21)${NC} ${YELLOW}EXIT${NC}"
+    echo -e "  ${BOLD}19)${NC} ${GREEN}RESOURCE MONITOR${NC} (CPU/RAM/Disk)"
+    echo -e "  ${BOLD}20)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
+    echo -e "  ${BOLD}21)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
+    echo -e "  ${BOLD}22)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -2209,15 +2289,34 @@ while true; do
     read -p "Selection: " CHOICE
 
     # Helper: require Waydroid running
+    # Accepts an active ADB-connected device as a valid running session
     _require_running() {
-        if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
-            print_header
-            print_error "Waydroid is not running! Start it using option 1 in the main menu."
-            echo ""
-            read -n 1 -p "Press any key..."
-            return 1
+        # Prefer explicit Waydroid status
+        if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+            return 0
         fi
-        return 0
+
+        # If we already have a remembered device, check it's still connected
+        if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
+            local dev="${CONNECTED_DEVICES[0]}"
+            if adb_device_connected "$dev"; then
+                return 0
+            fi
+        fi
+
+        # Probe current adb devices and adopt the first one if present
+        local anydev
+        anydev=$(adb devices 2>/dev/null | awk 'NR>1 && $1!="" {print $1}' | head -n1 || true)
+        if [ -n "$anydev" ]; then
+            CONNECTED_DEVICES=("$anydev")
+            return 0
+        fi
+
+        print_header
+        print_error "Waydroid is not running! Start it using option 1 in the main menu."
+        echo ""
+        read -n 1 -p "Press any key..."
+        return 1
     }
 
     case "$CHOICE" in
@@ -2239,9 +2338,10 @@ while true; do
         16) _require_running && quick_launch_app ;;
         17) _require_running && device_info_panel ;;
         18) show_status ;;
-        19) set_theme_interactive ;;
-        20) self_update ;;
-        21) clear; exit 0 ;;
+        19) _require_running && waydroid_resource_monitor ;;
+        20) set_theme_interactive ;;
+        21) self_update ;;
+        22) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done

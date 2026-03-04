@@ -3,9 +3,18 @@
 <div align="center">
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/fpsC7CjChY)
-[![Version](https://img.shields.io/badge/Version-0.7.0-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
+[![Version](https://img.shields.io/badge/Version-0.8.0-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
 [![License](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge&color=yellow)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/stargazers)
+
+
+---
+## 🆕 What's New in v0.8.0
+
+- **Resource Monitor**: Now updates in-place, showing live CPU/RAM/Disk stats without scrolling.
+- **Session Attach Fixes**: Attaching to an existing ADB session now enables all features (no more "Waydroid not running" errors).
+- **Improved Session Detection**: Smarter fallback logic for ADB device adoption and session status.
+- **Bug Fixes**: Quoting, session attach, monitor display, and syntax issues resolved.
 
 **The ultimate all-in-one terminal toolkit for Waydroid power users.**
 

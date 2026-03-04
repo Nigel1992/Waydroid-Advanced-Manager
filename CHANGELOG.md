@@ -1,3 +1,16 @@
+
+# 2026-03-04
+
+## Release v0.8.0
+
+### Added / Changed
+- **Resource Monitor**: Now updates in-place, showing live CPU/RAM/Disk stats without scrolling or flicker.
+- **Session Attach Fixes**: Attaching to an existing ADB session now enables all features (no more "Waydroid is not running" errors).
+- **Improved Session Detection**: Smarter fallback logic for ADB device adoption and session status.
+- **Bug Fixes**: Quoting, session attach, monitor display, and syntax issues resolved.
+
+---
+
 # 2026-03-04
 
 ## Release v0.7.0
