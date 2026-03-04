@@ -123,6 +123,8 @@ DEFAULT_DPI=""
 DEFAULT_RESOLUTION=""
 THEME="light"  # persisted theme (light|dark) - can be overridden in ~/.config/waydroid-manager.conf
 YES_FLAG=0  # set by --yes or -y to auto-confirm destructive actions
+LARGE_TEXT=0  # accessibility: large text mode
+HIGH_CONTRAST=0  # accessibility: high-contrast mode
 INSTALL_LOG="$LOG_DIR/install.log"
 UNINSTALL_LOG="$LOG_DIR/uninstall.log"
 
@@ -835,25 +837,38 @@ install_apks_dir_cli() {
 # Apply terminal theme (colors)
 # Selecting THEME="dark" applies a darker/bold palette, THEME="light" applies a light palette.
 apply_theme() {
-    if [ "${THEME:-light}" = "dark" ]; then
-        # Darker/bold palette
-        RED='\033[1;31m'
-        GREEN='\033[1;32m'
-        BLUE='\033[1;34m'
-        CYAN='\033[1;36m'
-        YELLOW='\033[1;33m'
-        BOLD='\033[1m'
-        NC='\033[0m'
-    else
-        # Light palette
-        RED='\033[0;31m'
-        GREEN='\033[0;32m'
-        BLUE='\033[0;34m'
-        CYAN='\033[0;36m'
-        YELLOW='\033[1;33m'
-        BOLD='\033[1m'
-        NC='\033[0m'
-    fi
+    case "${THEME:-light}" in
+        dark)
+            RED='\033[1;31m'; GREEN='\033[1;32m'; BLUE='\033[1;34m'
+            CYAN='\033[1;36m'; YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        ocean)
+            RED='\033[0;31m'; GREEN='\033[0;36m'; BLUE='\033[1;34m'
+            CYAN='\033[1;36m'; YELLOW='\033[0;33m'; MAGENTA='\033[0;34m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        forest)
+            RED='\033[0;33m'; GREEN='\033[1;32m'; BLUE='\033[0;32m'
+            CYAN='\033[0;36m'; YELLOW='\033[0;33m'; MAGENTA='\033[0;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        sunset)
+            RED='\033[1;31m'; GREEN='\033[0;33m'; BLUE='\033[0;34m'
+            CYAN='\033[0;31m'; YELLOW='\033[1;33m'; MAGENTA='\033[1;31m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        neon)
+            RED='\033[1;35m'; GREEN='\033[1;32m'; BLUE='\033[1;34m'
+            CYAN='\033[1;36m'; YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        *)
+            RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'
+            CYAN='\033[0;36m'; YELLOW='\033[1;33m'; MAGENTA='\033[0;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+    esac
 }
 
 # Set theme and persist to config (CLI)
@@ -2210,6 +2225,250 @@ device_info_panel() {
     read -n 1 -p "Press any key to return..."
 }
 
+# --- APK Downloader ---
+apk_downloader() {
+    print_header
+    echo -e "${BOLD}${GREEN}┌─ APK DOWNLOADER ──────────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  Search and download APKs from APKMirror"
+    echo -e "${GREEN}│${NC}  or provide a direct download URL."
+    echo -e "${GREEN}└────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${BOLD}1)${NC} Search APKMirror by app name"
+    echo -e "  ${BOLD}2)${NC} Download APK from direct URL"
+    echo -e "  ${BOLD}3)${NC} Back to main menu"
+    echo ""
+    read -p "Selection: " dl_choice
+
+    case "$dl_choice" in
+        1)
+            read -p "Enter app name to search: " search_term
+            if [ -z "$search_term" ]; then
+                print_error "No search term entered."
+                sleep 2
+                return
+            fi
+            local encoded
+            encoded=$(echo "$search_term" | sed 's/ /+/g')
+            local search_url="https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=${encoded}"
+            echo -e "\n${CYAN}Opening APKMirror search in your browser...${NC}"
+            echo -e "URL: ${BOLD}${search_url}${NC}\n"
+            if command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "$search_url" 2>/dev/null &
+            else
+                echo -e "${YELLOW}Could not open browser automatically. Please visit the URL above.${NC}"
+            fi
+            echo ""
+            echo -e "Once you have the direct APK download URL, use option 2 to download and install."
+            read -n 1 -p "Press any key to continue..."
+            ;;
+        2)
+            read -p "Enter direct APK URL: " apk_url
+            if [ -z "$apk_url" ]; then
+                print_error "No URL entered."
+                sleep 2
+                return
+            fi
+            # Validate URL format
+            if [[ ! "$apk_url" =~ ^https?:// ]]; then
+                print_error "Invalid URL. Must start with http:// or https://"
+                sleep 2
+                return
+            fi
+            local dl_dir="$HOME/Downloads/Waydroid"
+            mkdir -p "$dl_dir"
+            local filename
+            filename=$(basename "$apk_url" | sed 's/?.*//')
+            if [[ ! "$filename" =~ \.apk$ ]]; then
+                filename="${filename}.apk"
+            fi
+            local dl_path="$dl_dir/$filename"
+            echo -e "\n${CYAN}Downloading to: ${dl_path}${NC}"
+            if command -v curl >/dev/null 2>&1; then
+                curl -fL -o "$dl_path" "$apk_url"
+            elif command -v wget >/dev/null 2>&1; then
+                wget -O "$dl_path" "$apk_url"
+            else
+                print_error "Neither curl nor wget found. Cannot download."
+                sleep 2
+                return
+            fi
+            if [ -f "$dl_path" ] && [ -s "$dl_path" ]; then
+                print_success "Downloaded: $dl_path"
+                echo ""
+                read -p "Install this APK now? (y/N): " install_yn
+                if [[ "$install_yn" =~ ^[Yy] ]]; then
+                    local dev="${CONNECTED_DEVICES[0]}"
+                    if [ -n "$dev" ]; then
+                        adb -s "$dev" install -r "$dl_path" && print_success "APK installed!" || print_error "Install failed."
+                    else
+                        print_error "No ADB device connected."
+                    fi
+                fi
+            else
+                print_error "Download failed or file is empty."
+            fi
+            read -n 1 -p "Press any key to continue..."
+            ;;
+        3) return ;;
+        *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
+    esac
+}
+
+# --- Theme Customization ---
+theme_customization() {
+    print_header
+    echo -e "${BOLD}${GREEN}┌─ THEME CUSTOMIZATION ─────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  Choose a color scheme for the manager"
+    echo -e "${GREEN}└────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${BOLD}1)${NC} 🔆 Light (default)"
+    echo -e "  ${BOLD}2)${NC} 🌙 Dark"
+    echo -e "  ${BOLD}3)${NC} 🌊 Ocean (blue/teal)"
+    echo -e "  ${BOLD}4)${NC} 🌲 Forest (green)"
+    echo -e "  ${BOLD}5)${NC} 🌅 Sunset (warm red/orange)"
+    echo -e "  ${BOLD}6)${NC} 🔮 Neon (vibrant/magenta)"
+    echo -e "  ${BOLD}7)${NC} Back to main menu"
+    echo ""
+    echo -e "  Current theme: ${BOLD}${THEME:-light}${NC}"
+    echo ""
+    read -p "Selection: " theme_choice
+
+    case "$theme_choice" in
+        1)  THEME="light"
+            RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'
+            CYAN='\033[0;36m'; YELLOW='\033[1;33m'; MAGENTA='\033[0;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        2)  THEME="dark"
+            RED='\033[1;31m'; GREEN='\033[1;32m'; BLUE='\033[1;34m'
+            CYAN='\033[1;36m'; YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        3)  THEME="ocean"
+            RED='\033[0;31m'; GREEN='\033[0;36m'; BLUE='\033[1;34m'
+            CYAN='\033[1;36m'; YELLOW='\033[0;33m'; MAGENTA='\033[0;34m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        4)  THEME="forest"
+            RED='\033[0;33m'; GREEN='\033[1;32m'; BLUE='\033[0;32m'
+            CYAN='\033[0;36m'; YELLOW='\033[0;33m'; MAGENTA='\033[0;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        5)  THEME="sunset"
+            RED='\033[1;31m'; GREEN='\033[0;33m'; BLUE='\033[0;34m'
+            CYAN='\033[0;31m'; YELLOW='\033[1;33m'; MAGENTA='\033[1;31m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        6)  THEME="neon"
+            RED='\033[1;35m'; GREEN='\033[1;32m'; BLUE='\033[1;34m'
+            CYAN='\033[1;36m'; YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'
+            BOLD='\033[1m'; NC='\033[0m'
+            ;;
+        7)  return ;;
+        *)  echo -e "${RED}Invalid selection.${NC}"; sleep 1; return ;;
+    esac
+
+    # Persist theme to config
+    mkdir -p "$(dirname "$CONFIG_FILE")"
+    if [ -f "$CONFIG_FILE" ]; then
+        if grep -q '^THEME=' "$CONFIG_FILE"; then
+            sed -i "s/^THEME=.*/THEME=\"$THEME\"/" "$CONFIG_FILE"
+        else
+            echo "THEME=\"$THEME\"" >> "$CONFIG_FILE"
+        fi
+    else
+        echo "THEME=\"$THEME\"" > "$CONFIG_FILE"
+    fi
+
+    print_success "Theme set to '$THEME' and saved."
+    read -n 1 -p "Press any key to continue..."
+}
+
+# --- Accessibility Tools ---
+accessibility_tools() {
+    print_header
+    echo -e "${BOLD}${GREEN}┌─ ACCESSIBILITY TOOLS ─────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  Adjust the terminal display for comfort"
+    echo -e "${GREEN}└────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -e "  ${BOLD}1)${NC} 🔍 Toggle Large Text Mode"
+    echo -e "  ${BOLD}2)${NC} 🔊 Text-to-Speech (read status aloud)"
+    echo -e "  ${BOLD}3)${NC} 🖥️  Toggle High-Contrast Mode"
+    echo -e "  ${BOLD}4)${NC} Back to main menu"
+    echo ""
+    read -p "Selection: " a11y_choice
+
+    case "$a11y_choice" in
+        1)
+            # Large text mode — increase terminal font size via escape codes
+            if [ "${LARGE_TEXT:-0}" -eq 0 ]; then
+                # Request larger font via xterm OSC (works in many terminals)
+                printf '\033]50;%s\007' "xft:Monospace:size=16"
+                LARGE_TEXT=1
+                print_success "Large text mode ENABLED. (Font size increased)"
+            else
+                printf '\033]50;%s\007' "xft:Monospace:size=10"
+                LARGE_TEXT=0
+                print_success "Large text mode DISABLED. (Font size restored)"
+            fi
+            read -n 1 -p "Press any key to continue..."
+            ;;
+        2)
+            # Text-to-speech: read a summary of Waydroid status aloud
+            if command -v espeak-ng >/dev/null 2>&1; then
+                local tts_cmd="espeak-ng"
+            elif command -v espeak >/dev/null 2>&1; then
+                local tts_cmd="espeak"
+            elif command -v spd-say >/dev/null 2>&1; then
+                local tts_cmd="spd-say"
+            else
+                print_error "No text-to-speech engine found. Install espeak-ng or spd-say."
+                echo -e "  ${CYAN}sudo apt install espeak-ng${NC}"
+                read -n 1 -p "Press any key to continue..."
+                return
+            fi
+
+            echo -e "${CYAN}Reading status aloud...${NC}"
+            local status_text="Waydroid Manager. "
+            if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
+                status_text+="Connected devices: ${#CONNECTED_DEVICES[@]}. Device: ${CONNECTED_DEVICES[0]}. "
+            else
+                status_text+="No devices connected. "
+            fi
+            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
+                status_text+="Waydroid is running."
+            else
+                status_text+="Waydroid is not running."
+            fi
+            $tts_cmd "$status_text" 2>/dev/null &
+            print_success "Speaking status..."
+            sleep 3
+            ;;
+        3)
+            # High-contrast mode: switch to bold white on black palette
+            if [ "${HIGH_CONTRAST:-0}" -eq 0 ]; then
+                RED='\033[1;97;41m'
+                GREEN='\033[1;97;42m'
+                BLUE='\033[1;97;44m'
+                CYAN='\033[1;97;46m'
+                YELLOW='\033[1;30;43m'
+                MAGENTA='\033[1;97;45m'
+                BOLD='\033[1;97m'
+                NC='\033[0m'
+                HIGH_CONTRAST=1
+                print_success "High-contrast mode ENABLED."
+            else
+                apply_theme
+                HIGH_CONTRAST=0
+                print_success "High-contrast mode DISABLED. Theme restored."
+            fi
+            read -n 1 -p "Press any key to continue..."
+            ;;
+        4) return ;;
+        *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
+    esac
+}
+
 # --- Waydroid Resource Monitor (realtime) ---
 waydroid_resource_monitor() {
     if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
@@ -2322,16 +2581,16 @@ while true; do
     echo -e "  ${BOLD}16)${NC} 🗑  ${RED}CLEAR APP DATA${NC}/Cache"
     echo -e "  ${BOLD}17)${NC} 🚀 ${GREEN}QUICK LAUNCH${NC} App"
     echo -e "  ${BOLD}18)${NC} ℹ️  ${CYAN}DEVICE INFO${NC}"
-    echo -e "  ${BOLD}24)${NC} 🔍 ${MAGENTA}APK DOWNLOADER${NC} (Search & Download)"
-    echo -e "  ${BOLD}25)${NC} 🎨 ${CYAN}THEME CUSTOMIZATION${NC} (More Schemes)"
-    echo -e "  ${BOLD}26)${NC} ♿ ${YELLOW}ACCESSIBILITY TOOLS${NC} (Contrast, Magnifier, TTS)"
+    echo -e "  ${BOLD}19)${NC} 📦 ${GREEN}APK DOWNLOADER${NC}"
+    echo -e "  ${BOLD}20)${NC} 🎨 ${MAGENTA}THEME CUSTOMIZATION${NC}"
+    echo -e "  ${BOLD}21)${NC} ♿ ${CYAN}ACCESSIBILITY TOOLS${NC}"
     echo ""
     echo -e " ${BOLD}${MAGENTA}── SYSTEM ──${NC}"
-    echo -e "  ${BOLD}19)${NC} ${CYAN}STATUS${NC}"
-    echo -e "  ${BOLD}20)${NC} ${GREEN}RESOURCE MONITOR${NC} (CPU/RAM/Disk)"
-    echo -e "  ${BOLD}21)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
-    echo -e "  ${BOLD}22)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
-    echo -e "  ${BOLD}23)${NC} ${YELLOW}EXIT${NC}"
+    echo -e "  ${BOLD}22)${NC} ${CYAN}STATUS${NC}"
+    echo -e "  ${BOLD}23)${NC} ${GREEN}RESOURCE MONITOR${NC} (CPU/RAM/Disk)"
+    echo -e "  ${BOLD}24)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
+    echo -e "  ${BOLD}25)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
+    echo -e "  ${BOLD}26)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -2393,49 +2652,14 @@ while true; do
         16) _require_running && clear_app_data ;;
         17) _require_running && quick_launch_app ;;
         18) _require_running && device_info_panel ;;
-        19) show_status ;;
-        20) _require_running && waydroid_resource_monitor ;;
-        21) set_theme_interactive ;;
-        22) apk_downloader_menu ;;
-        23) theme_customization_menu ;;
-        24) accessibility_tools_menu ;;
+        19) _require_running && apk_downloader ;;
+        20) theme_customization ;;
+        21) accessibility_tools ;;
+        22) show_status ;;
+        23) _require_running && waydroid_resource_monitor ;;
+        24) set_theme_interactive ;;
         25) self_update ;;
         26) clear; exit 0 ;;
-        # --- APK Downloader Stub ---
-        apk_downloader_menu() {
-            print_header
-            echo -e "${MAGENTA}APK Downloader${NC}"
-            echo "Enter the app name or package to search for:"
-            read -r app_query
-            echo "Searching for APKs for: $app_query"
-            echo "(Stub: This will search trusted sources and download the APK in future versions.)"
-            read -n 1 -p "Press any key to return to menu..."
-        }
-
-        # --- Theme Customization Stub ---
-        theme_customization_menu() {
-            print_header
-            echo -e "${CYAN}Theme Customization${NC}"
-            echo "Choose a color scheme:"
-            echo "  1) Default"
-            echo "  2) Solarized"
-            echo "  3) Dracula"
-            echo "  4) High Contrast"
-            echo "(Stub: More themes will be available in future versions.)"
-            read -n 1 -p "Press any key to return to menu..."
-        }
-
-        # --- Accessibility Tools Stub ---
-        accessibility_tools_menu() {
-            print_header
-            echo -e "${YELLOW}Accessibility Tools${NC}"
-            echo "Select an accessibility feature:"
-            echo "  1) High-contrast mode"
-            echo "  2) Magnifier (enlarge menu text)"
-            echo "  3) Text-to-speech (read menu aloud)"
-            echo "(Stub: Accessibility features will be implemented in future versions.)"
-            read -n 1 -p "Press any key to return to menu..."
-        }
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
