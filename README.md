@@ -27,6 +27,14 @@ A polished, user-friendly Bash CLI for managing Waydroid: start/stop Waydroid an
 - ✅ New tablet and ultra-wide resolution presets
 - ✅ CLI flags for non-interactive use
 - ✅ Install/uninstall logs separated and rotated, plus logging verbosity
+- ✅ **Screenshot capture** — save Android screen to `~/Pictures/Waydroid/`
+- ✅ **Screen recording** — record screen (up to 180s) to `~/Videos/Waydroid/`
+- ✅ **File transfer** — push/pull files and folders between host and Android
+- ✅ **Logcat viewer** — live logcat, filter by tag, errors-only, save to file
+- ✅ **Freeze/disable apps** — disable bloatware without uninstalling; re-enable later
+- ✅ **Clear app data/cache** — wipe data or cache for any app
+- ✅ **Quick launch app** — launch any app by package name
+- ✅ **Device info panel** — Android version, display, storage, memory, network, uptime
 - ✅ Licensed under the MIT License (see `LICENSE`)
 
 ---
@@ -103,7 +111,7 @@ Install and uninstall actions are logged separately (per-APK results and batch s
 ---
 
 ## 🧾 Changelog & Releases
-See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.6.0** (2026-03-04).
+See [`CHANGELOG.md`](CHANGELOG.md) for full history. Latest release: **v0.7.0** (2025-06-13).
 
 ---
 

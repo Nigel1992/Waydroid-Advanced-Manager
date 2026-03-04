@@ -1,3 +1,22 @@
+# 2025-06-13
+
+## Release v0.7.0
+
+### Added — New Tools Menu
+- **Screenshot Capture** (Option 10): Take a screenshot of the Android screen via ADB and save it to `~/Pictures/Waydroid/`. Offers to open the image after capture.
+- **Screen Recording** (Option 11): Record the Android screen (up to 180 seconds) and save to `~/Videos/Waydroid/`. Offers to open the video after recording.
+- **File Transfer** (Option 12): Push files to or pull files/folders from Android. Supports zenity file picker dialogs or manual path entry.
+- **Logcat Viewer** (Option 13): View live logcat output, save last 500 lines to file, filter by tag, or show errors only.
+- **Freeze/Disable Apps** (Option 14): Disable (freeze) apps without uninstalling, re-enable them later, and list all disabled packages. Uses zenity app picker when available.
+- **Clear App Data/Cache** (Option 15): Clear all data or just cache for a selected app. Supports zenity app picker.
+- **Quick Launch App** (Option 16): Launch any installed third-party app by selecting its package name.
+- **Device Info Panel** (Option 17): Comprehensive device overview showing Android version, SDK level, display resolution/density, storage, memory, network, uptime, and installed package count.
+
+### Changed
+- **Reorganized main menu**: Options grouped into four sections — Core, ADB, Settings & Apps, Tools, and System — for easier navigation.
+- **Menu now has 21 options**: Previous options 10-13 renumbered to 18-21 (Status, Theme, Check for Updates, Exit).
+- **DRY refactor**: Replaced repetitive "Waydroid not running" checks in the case statement with a shared `_require_running` helper function.
+
 # 2026-03-04
 
 ## Release v0.6.0

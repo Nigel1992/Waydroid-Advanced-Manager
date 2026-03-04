@@ -14,8 +14,8 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Embedded version (single source of truth inside script)
-SCRIPT_VERSION="0.6.0"
-RELEASE_DATE="2026-03-04"
+SCRIPT_VERSION="0.7.0"
+RELEASE_DATE="2025-06-13"
 
 # --- Update Check on Launch ---
 get_latest_version_from_github() {
@@ -1685,22 +1685,512 @@ detect_existing_session() {
 
 detect_existing_session
 
+# ===================== NEW UTILITY FUNCTIONS =====================
+
+# --- Screenshot Capture ---
+take_screenshot() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ SCREENSHOT CAPTURE ━━━${NC}\n"
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+
+    local timestamp
+    timestamp=$(date '+%Y%m%d_%H%M%S')
+    local remote_path="/sdcard/screenshot_${timestamp}.png"
+    local save_dir="$HOME/Pictures/Waydroid"
+    mkdir -p "$save_dir"
+    local local_path="$save_dir/screenshot_${timestamp}.png"
+
+    print_status "Capturing screenshot..."
+    adb -s "${CONNECTED_DEVICES[0]}" shell screencap -p "$remote_path" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        print_error "Failed to capture screenshot."
+        read -n 1 -p "Press any key..."
+        return
+    fi
+
+    print_status "Pulling screenshot to $local_path..."
+    adb -s "${CONNECTED_DEVICES[0]}" pull "$remote_path" "$local_path" 2>/dev/null
+    adb -s "${CONNECTED_DEVICES[0]}" shell rm -f "$remote_path" 2>/dev/null
+
+    if [ -f "$local_path" ]; then
+        print_success "Screenshot saved: $local_path"
+        echo ""
+        read -p "Open screenshot? (y/N): " open_choice
+        if [[ "$open_choice" =~ ^[Yy]$ ]]; then
+            if command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "$local_path" 2>/dev/null &
+            else
+                print_status "Cannot auto-open. File is at: $local_path"
+            fi
+        fi
+    else
+        print_error "Failed to save screenshot."
+    fi
+    read -n 1 -p "Press any key..."
+}
+
+# --- Screen Recording ---
+record_screen() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ SCREEN RECORDING ━━━${NC}\n"
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+
+    local timestamp
+    timestamp=$(date '+%Y%m%d_%H%M%S')
+    local remote_path="/sdcard/recording_${timestamp}.mp4"
+    local save_dir="$HOME/Videos/Waydroid"
+    mkdir -p "$save_dir"
+    local local_path="$save_dir/recording_${timestamp}.mp4"
+
+    local duration
+    read -p "Recording duration in seconds (default 30, max 180): " duration
+    duration=${duration:-30}
+    if ! [[ "$duration" =~ ^[0-9]+$ ]] || [ "$duration" -gt 180 ]; then
+        duration=30
+    fi
+
+    echo -e "\n${YELLOW}Recording for ${duration}s... Press Ctrl+C in another terminal to stop early.${NC}"
+    print_status "Starting screen recording..."
+    adb -s "${CONNECTED_DEVICES[0]}" shell screenrecord --time-limit "$duration" "$remote_path" 2>/dev/null
+    sleep 1
+
+    print_status "Pulling recording to $local_path..."
+    adb -s "${CONNECTED_DEVICES[0]}" pull "$remote_path" "$local_path" 2>/dev/null
+    adb -s "${CONNECTED_DEVICES[0]}" shell rm -f "$remote_path" 2>/dev/null
+
+    if [ -f "$local_path" ]; then
+        print_success "Recording saved: $local_path"
+        echo ""
+        read -p "Open recording? (y/N): " open_choice
+        if [[ "$open_choice" =~ ^[Yy]$ ]]; then
+            if command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "$local_path" 2>/dev/null &
+            fi
+        fi
+    else
+        print_error "Failed to save recording."
+    fi
+    read -n 1 -p "Press any key..."
+}
+
+# --- File Transfer (Push/Pull) ---
+file_transfer_menu() {
+    while true; do
+        print_header
+        echo -e "${BOLD}${GREEN}━━━ FILE TRANSFER ━━━${NC}"
+        echo ""
+        echo -e "  ${BOLD}1)${NC}  📤 Push file to Android"
+        echo -e "  ${BOLD}2)${NC}  📥 Pull file from Android"
+        echo -e "  ${BOLD}3)${NC}  📥 Pull folder from Android"
+        echo -e "  ${BOLD}4)${NC}  ↩ Back"
+        echo ""
+        read -p "Selection: " FT_CHOICE
+
+        if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+            wait_and_connect_adb $(get_waydroid_ip) || return
+        fi
+
+        case "$FT_CHOICE" in
+            1)
+                local src_file
+                if command -v zenity >/dev/null 2>&1; then
+                    src_file=$(zenity --file-selection --title="Select file to push" --modal 2>/dev/null)
+                else
+                    read -p "Local file path: " src_file
+                fi
+                if [ -z "$src_file" ] || [ ! -f "$src_file" ]; then
+                    print_error "No valid file selected."
+                    sleep 1
+                    continue
+                fi
+                local dest
+                read -p "Android destination (default /sdcard/): " dest
+                dest=${dest:-/sdcard/}
+                print_status "Pushing $(basename "$src_file") to $dest..."
+                adb -s "${CONNECTED_DEVICES[0]}" push "$src_file" "$dest" 2>&1
+                print_success "Done."
+                read -n 1 -p "Press any key..."
+                ;;
+            2)
+                local remote_file
+                read -p "Android file path (e.g. /sdcard/myfile.txt): " remote_file
+                if [ -z "$remote_file" ]; then
+                    print_error "No path entered."
+                    sleep 1
+                    continue
+                fi
+                local local_dest
+                if command -v zenity >/dev/null 2>&1; then
+                    local_dest=$(zenity --file-selection --save --title="Save file as..." --modal 2>/dev/null)
+                else
+                    read -p "Local save path (default ~/Downloads/): " local_dest
+                    local_dest=${local_dest:-$HOME/Downloads/}
+                fi
+                print_status "Pulling $remote_file..."
+                adb -s "${CONNECTED_DEVICES[0]}" pull "$remote_file" "$local_dest" 2>&1
+                print_success "Done."
+                read -n 1 -p "Press any key..."
+                ;;
+            3)
+                local remote_dir
+                read -p "Android directory (e.g. /sdcard/DCIM/): " remote_dir
+                if [ -z "$remote_dir" ]; then
+                    print_error "No path entered."
+                    sleep 1
+                    continue
+                fi
+                local local_dir
+                if command -v zenity >/dev/null 2>&1; then
+                    local_dir=$(zenity --file-selection --directory --title="Select local destination" --modal 2>/dev/null)
+                else
+                    read -p "Local save directory (default ~/Downloads/): " local_dir
+                    local_dir=${local_dir:-$HOME/Downloads/}
+                fi
+                print_status "Pulling $remote_dir..."
+                adb -s "${CONNECTED_DEVICES[0]}" pull "$remote_dir" "$local_dir" 2>&1
+                print_success "Done."
+                read -n 1 -p "Press any key..."
+                ;;
+            4) break ;;
+            *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# --- Logcat Viewer ---
+logcat_viewer() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ LOGCAT VIEWER ━━━${NC}\n"
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+
+    echo -e "  ${BOLD}1)${NC}  Show live logcat (Ctrl+C to stop)"
+    echo -e "  ${BOLD}2)${NC}  Save last 500 lines to file"
+    echo -e "  ${BOLD}3)${NC}  Filter by tag (live)"
+    echo -e "  ${BOLD}4)${NC}  Show errors only"
+    echo -e "  ${BOLD}5)${NC}  ↩ Back"
+    echo ""
+    read -p "Selection: " LOG_CHOICE
+
+    local save_dir="$HOME/.cache/waydroid-manager"
+    mkdir -p "$save_dir"
+
+    case "$LOG_CHOICE" in
+        1)
+            echo -e "${YELLOW}Live logcat output (Ctrl+C to stop):${NC}\n"
+            adb -s "${CONNECTED_DEVICES[0]}" logcat 2>/dev/null
+            ;;
+        2)
+            local logfile="$save_dir/logcat_$(date +%Y%m%d_%H%M%S).txt"
+            print_status "Saving last 500 lines to $logfile..."
+            adb -s "${CONNECTED_DEVICES[0]}" logcat -d -t 500 2>/dev/null > "$logfile"
+            if [ -s "$logfile" ]; then
+                print_success "Saved: $logfile"
+            else
+                print_error "No logcat output captured."
+            fi
+            read -n 1 -p "Press any key..."
+            ;;
+        3)
+            read -p "Enter tag to filter (e.g. ActivityManager): " tag
+            if [ -n "$tag" ]; then
+                echo -e "${YELLOW}Filtered logcat for '$tag' (Ctrl+C to stop):${NC}\n"
+                adb -s "${CONNECTED_DEVICES[0]}" logcat -s "$tag" 2>/dev/null
+            fi
+            ;;
+        4)
+            echo -e "${YELLOW}Errors only (Ctrl+C to stop):${NC}\n"
+            adb -s "${CONNECTED_DEVICES[0]}" logcat "*:E" 2>/dev/null
+            ;;
+        5) return ;;
+        *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
+    esac
+}
+
+# --- Freeze / Disable Apps ---
+freeze_apps_menu() {
+    while true; do
+        print_header
+        echo -e "${BOLD}${GREEN}━━━ FREEZE / DISABLE APPS ━━━${NC}\n"
+
+        if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+            wait_and_connect_adb $(get_waydroid_ip) || return
+        fi
+
+        echo -e "  ${BOLD}1)${NC}  ❄️  Disable (freeze) an app"
+        echo -e "  ${BOLD}2)${NC}  🔥 Enable (unfreeze) an app"
+        echo -e "  ${BOLD}3)${NC}  📋 List disabled apps"
+        echo -e "  ${BOLD}4)${NC}  ↩ Back"
+        echo ""
+        read -p "Selection: " FREEZE_CHOICE
+
+        case "$FREEZE_CHOICE" in
+            1)
+                local pkg
+                if command -v zenity >/dev/null 2>&1; then
+                    local pkgs
+                    pkgs=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages -e 2>/dev/null | sed 's/package://' | sort)
+                    pkg=$(echo "$pkgs" | zenity --list --title="Select App to Disable" --column="Package" --height=500 --width=600 --modal 2>/dev/null)
+                else
+                    read -p "Package name to disable: " pkg
+                fi
+                if [ -n "$pkg" ]; then
+                    if confirm "Disable $pkg? (It can be re-enabled later)"; then
+                        adb -s "${CONNECTED_DEVICES[0]}" shell pm disable-user --user 0 "$pkg" 2>&1
+                        print_success "Disabled: $pkg"
+                        log_line "INFO" "FREEZE $pkg"
+                    else
+                        print_status "Cancelled."
+                    fi
+                fi
+                sleep 1
+                ;;
+            2)
+                local pkg
+                if command -v zenity >/dev/null 2>&1; then
+                    local disabled
+                    disabled=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages -d 2>/dev/null | sed 's/package://' | sort)
+                    if [ -z "$disabled" ]; then
+                        print_status "No disabled apps found."
+                        sleep 1
+                        continue
+                    fi
+                    pkg=$(echo "$disabled" | zenity --list --title="Select App to Enable" --column="Package" --height=500 --width=600 --modal 2>/dev/null)
+                else
+                    read -p "Package name to enable: " pkg
+                fi
+                if [ -n "$pkg" ]; then
+                    adb -s "${CONNECTED_DEVICES[0]}" shell pm enable "$pkg" 2>&1
+                    print_success "Enabled: $pkg"
+                    log_line "INFO" "UNFREEZE $pkg"
+                fi
+                sleep 1
+                ;;
+            3)
+                print_header
+                echo -e "${BOLD}${CYAN}━━━ DISABLED APPS ━━━${NC}\n"
+                local disabled
+                disabled=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages -d 2>/dev/null | sed 's/package://' | sort)
+                if [ -z "$disabled" ]; then
+                    print_status "No disabled apps."
+                else
+                    echo "$disabled"
+                    echo ""
+                    echo -e "${CYAN}Total: $(echo "$disabled" | wc -l) disabled packages${NC}"
+                fi
+                echo ""
+                read -n 1 -p "Press any key..."
+                ;;
+            4) break ;;
+            *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+# --- Clear App Data / Cache ---
+clear_app_data() {
+    print_header
+    echo -e "${BOLD}${YELLOW}━━━ CLEAR APP DATA / CACHE ━━━${NC}\n"
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+
+    echo -e "  ${BOLD}1)${NC}  🗑 Clear ALL data for an app"
+    echo -e "  ${BOLD}2)${NC}  🧹 Clear cache only for an app"
+    echo -e "  ${BOLD}3)${NC}  ↩ Back"
+    echo ""
+    read -p "Selection: " CLEAR_CHOICE
+
+    local pkg=""
+    if [ "$CLEAR_CHOICE" = "1" ] || [ "$CLEAR_CHOICE" = "2" ]; then
+        if command -v zenity >/dev/null 2>&1; then
+            local pkgs
+            pkgs=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages 2>/dev/null | sed 's/package://' | sort)
+            pkg=$(echo "$pkgs" | zenity --list --title="Select App" --column="Package" --height=500 --width=600 --modal 2>/dev/null)
+        else
+            read -p "Package name: " pkg
+        fi
+    fi
+
+    case "$CLEAR_CHOICE" in
+        1)
+            if [ -n "$pkg" ]; then
+                if confirm "Clear ALL data for $pkg? This cannot be undone."; then
+                    adb -s "${CONNECTED_DEVICES[0]}" shell pm clear "$pkg" 2>&1
+                    print_success "All data cleared for $pkg."
+                    log_line "INFO" "CLEAR_DATA $pkg"
+                else
+                    print_status "Cancelled."
+                fi
+            fi
+            ;;
+        2)
+            if [ -n "$pkg" ]; then
+                print_status "Clearing cache for $pkg..."
+                adb -s "${CONNECTED_DEVICES[0]}" shell pm clear --cache-only "$pkg" 2>/dev/null
+                # Fallback: some Android versions need rm approach
+                adb -s "${CONNECTED_DEVICES[0]}" shell run-as "$pkg" rm -rf /data/data/"$pkg"/cache/* 2>/dev/null
+                print_success "Cache cleared for $pkg."
+                log_line "INFO" "CLEAR_CACHE $pkg"
+            fi
+            ;;
+        3) return ;;
+        *) echo -e "${RED}Invalid selection.${NC}"; sleep 1; return ;;
+    esac
+    read -n 1 -p "Press any key..."
+}
+
+# --- Quick Launch App ---
+quick_launch_app() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ QUICK LAUNCH APP ━━━${NC}\n"
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+
+    local pkg=""
+    if command -v zenity >/dev/null 2>&1; then
+        local pkgs
+        pkgs=$(adb -s "${CONNECTED_DEVICES[0]}" shell pm list packages -3 2>/dev/null | sed 's/package://' | sort)
+        pkg=$(echo "$pkgs" | zenity --list --title="Select App to Launch" --column="Package" --height=500 --width=600 --modal 2>/dev/null)
+    else
+        read -p "Package name to launch (e.g. com.example.app): " pkg
+    fi
+
+    if [ -z "$pkg" ]; then
+        print_status "Cancelled."
+        sleep 1
+        return
+    fi
+
+    print_status "Launching $pkg..."
+    # Use monkey to launch the app's main activity
+    adb -s "${CONNECTED_DEVICES[0]}" shell monkey -p "$pkg" -c android.intent.category.LAUNCHER 1 2>/dev/null
+    if [ $? -eq 0 ]; then
+        print_success "Launched: $pkg"
+    else
+        print_error "Failed to launch $pkg"
+    fi
+    read -n 1 -p "Press any key..."
+}
+
+# --- Device Info Panel ---
+device_info_panel() {
+    print_header
+    echo -e "${BOLD}${CYAN}━━━ DEVICE INFORMATION ━━━${NC}\n"
+
+    if [ ${#CONNECTED_DEVICES[@]} -eq 0 ]; then
+        wait_and_connect_adb $(get_waydroid_ip) || return
+    fi
+
+    local dev="${CONNECTED_DEVICES[0]}"
+
+    echo -e "${BOLD}${GREEN}┌─ ANDROID / WAYDROID ─────────────────────────────┐${NC}"
+    echo -e "${GREEN}│${NC}  Android Version:  ${BOLD}$(adb -s "$dev" shell getprop ro.build.version.release 2>/dev/null || echo N/A)${NC}"
+    echo -e "${GREEN}│${NC}  SDK Level:        ${BOLD}$(adb -s "$dev" shell getprop ro.build.version.sdk 2>/dev/null || echo N/A)${NC}"
+    echo -e "${GREEN}│${NC}  Build:            ${BOLD}$(adb -s "$dev" shell getprop ro.build.display.id 2>/dev/null || echo N/A)${NC}"
+    echo -e "${GREEN}│${NC}  Device:           ${BOLD}$(adb -s "$dev" shell getprop ro.product.model 2>/dev/null || echo N/A)${NC}"
+    echo -e "${GREEN}│${NC}  Architecture:     ${BOLD}$(adb -s "$dev" shell getprop ro.product.cpu.abi 2>/dev/null || echo N/A)${NC}"
+    echo -e "${GREEN}└──────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    echo -e "${BOLD}${BLUE}┌─ DISPLAY ────────────────────────────────────────┐${NC}"
+    local res
+    local den
+    res=$(adb -s "$dev" shell wm size 2>/dev/null | grep -oP '\d+x\d+' || echo "N/A")
+    den=$(adb -s "$dev" shell wm density 2>/dev/null | grep -oP '\d+' | head -1 || echo "N/A")
+    echo -e "${BLUE}│${NC}  Resolution:       ${BOLD}${res}${NC}"
+    echo -e "${BLUE}│${NC}  Density:          ${BOLD}${den} dpi${NC}"
+    echo -e "${BLUE}└──────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    echo -e "${BOLD}${YELLOW}┌─ STORAGE ────────────────────────────────────────┐${NC}"
+    local storage
+    storage=$(adb -s "$dev" shell df -h /data 2>/dev/null | tail -1)
+    if [ -n "$storage" ]; then
+        echo -e "${YELLOW}│${NC}  $storage"
+    else
+        echo -e "${YELLOW}│${NC}  Unable to retrieve storage info"
+    fi
+    echo -e "${YELLOW}└──────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    echo -e "${BOLD}${MAGENTA}┌─ MEMORY ─────────────────────────────────────────┐${NC}"
+    local meminfo
+    meminfo=$(adb -s "$dev" shell cat /proc/meminfo 2>/dev/null | head -3)
+    if [ -n "$meminfo" ]; then
+        echo "$meminfo" | while read -r line; do
+            echo -e "${MAGENTA}│${NC}  $line"
+        done
+    fi
+    echo -e "${MAGENTA}└──────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    echo -e "${BOLD}${CYAN}┌─ NETWORK ────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC}  Waydroid IP:      ${BOLD}$(get_waydroid_ip)${NC}"
+    echo -e "${CYAN}│${NC}  ADB Device:       ${BOLD}${dev}${NC}"
+    echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    local uptime_info
+    uptime_info=$(adb -s "$dev" shell uptime 2>/dev/null | head -1)
+    if [ -n "$uptime_info" ]; then
+        echo -e "${CYAN}Uptime: ${uptime_info}${NC}"
+    fi
+
+    local app_count
+    app_count=$(adb -s "$dev" shell pm list packages 2>/dev/null | wc -l)
+    echo -e "${CYAN}Installed packages: ${BOLD}${app_count}${NC}"
+
+    echo ""
+    read -n 1 -p "Press any key to return..."
+}
+
+# ===================== END NEW UTILITY FUNCTIONS =====================
+
 # ---------------- MAIN MENU ----------------
 while true; do
     print_header
-    echo -e " ${BOLD}1)${NC} ${GREEN}START/RESTART${NC} Waydroid"
-    echo -e "  ${BOLD}2)${NC} ${RED}STOP${NC} Waydroid & Weston"
-    echo -e "  ${BOLD}3)${NC} ${CYAN}INSTALL${NC} APK File"
-    echo -e "  ${BOLD}4)${NC} ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc. by casualsnek/waydroid_script)"
-    echo -e "  ${BOLD}5)${NC} ${BLUE}LIST${NC} ADB Devices"
-    echo -e "  ${BOLD}6)${NC} ${YELLOW}RECONNECT${NC} ADB"
-    echo -e "  ${BOLD}7)${NC} ${GREEN}DISPLAY SETTINGS${NC} (Resolution, Density, etc.)"
-    echo -e "  ${BOLD}8)${NC} ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
-    echo -e "  ${BOLD}9)${NC} ${MAGENTA}COPY/PASTE${NC} to Android"
-    echo -e "  ${BOLD}10)${NC} ${CYAN}STATUS${NC}"
-    echo -e "  ${BOLD}11)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
-    echo -e "  ${BOLD}12)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
-    echo -e "  ${BOLD}13)${NC} ${YELLOW}EXIT${NC}"
+    echo -e " ${BOLD}${GREEN}── CORE ──${NC}"
+    echo -e "  ${BOLD}1)${NC}  ${GREEN}START/RESTART${NC} Waydroid"
+    echo -e "  ${BOLD}2)${NC}  ${RED}STOP${NC} Waydroid & Weston"
+    echo -e "  ${BOLD}3)${NC}  ${CYAN}INSTALL${NC} APK File"
+    echo -e "  ${BOLD}4)${NC}  ${MAGENTA}WAYDROID SCRIPT${NC} (GApps, Magisk, etc.)"
+    echo ""
+    echo -e " ${BOLD}${BLUE}── ADB ──${NC}"
+    echo -e "  ${BOLD}5)${NC}  ${BLUE}LIST${NC} ADB Devices"
+    echo -e "  ${BOLD}6)${NC}  ${YELLOW}RECONNECT${NC} ADB"
+    echo ""
+    echo -e " ${BOLD}${CYAN}── SETTINGS & APPS ──${NC}"
+    echo -e "  ${BOLD}7)${NC}  ${GREEN}DISPLAY SETTINGS${NC} (Resolution, Density)"
+    echo -e "  ${BOLD}8)${NC}  ${CYAN}APP MANAGEMENT${NC} (Install/Uninstall)"
+    echo -e "  ${BOLD}9)${NC}  ${MAGENTA}COPY/PASTE${NC} to Android"
+    echo ""
+    echo -e " ${BOLD}${YELLOW}── TOOLS ──${NC}"
+    echo -e "  ${BOLD}10)${NC} 📸 ${CYAN}SCREENSHOT${NC}"
+    echo -e "  ${BOLD}11)${NC} 🎬 ${RED}SCREEN RECORDING${NC}"
+    echo -e "  ${BOLD}12)${NC} 📂 ${GREEN}FILE TRANSFER${NC} (Push/Pull)"
+    echo -e "  ${BOLD}13)${NC} 📋 ${YELLOW}LOGCAT VIEWER${NC}"
+    echo -e "  ${BOLD}14)${NC} ❄️  ${BLUE}FREEZE/DISABLE${NC} Apps"
+    echo -e "  ${BOLD}15)${NC} 🗑  ${RED}CLEAR APP DATA${NC}/Cache"
+    echo -e "  ${BOLD}16)${NC} 🚀 ${GREEN}QUICK LAUNCH${NC} App"
+    echo -e "  ${BOLD}17)${NC} ℹ️  ${CYAN}DEVICE INFO${NC}"
+    echo ""
+    echo -e " ${BOLD}${MAGENTA}── SYSTEM ──${NC}"
+    echo -e "  ${BOLD}18)${NC} ${CYAN}STATUS${NC}"
+    echo -e "  ${BOLD}19)${NC} ${MAGENTA}THEME${NC} (Light/Dark)"
+    echo -e "  ${BOLD}20)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
+    echo -e "  ${BOLD}21)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
     
     if [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
@@ -1711,92 +2201,41 @@ while true; do
     echo -e "${CYAN}==================================================${NC}"
     
     read -p "Selection: " CHOICE
+
+    # Helper: require Waydroid running
+    _require_running() {
+        if ! waydroid status 2>/dev/null | grep -q "RUNNING"; then
+            print_header
+            print_error "Waydroid is not running! Start it using option 1 in the main menu."
+            echo ""
+            read -n 1 -p "Press any key..."
+            return 1
+        fi
+        return 0
+    }
+
     case "$CHOICE" in
         1) restart_waydroid ;;
-        2)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                stop_waydroid
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        3)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                install_apk
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        4)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                run_waydroid_script
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        5)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                print_header; adb devices -l; read -n 1 -p "Press any key..."
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        6)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                wait_and_connect_adb $(get_waydroid_ip)
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        7)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                change_display_settings
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        8)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                uninstall_apps_menu
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        9)
-            if waydroid status 2>/dev/null | grep -q "RUNNING"; then
-                copy_paste_to_android
-            else
-                print_header
-                print_error "Waydroid is not running! Start it using option 1 in the main menu."
-                echo ""
-                read -n 1 -p "Press any key..."
-            fi
-            ;;
-        10) show_status ;;
-        11) set_theme_interactive ;;
-        12) self_update ;;
-        13) clear; exit 0 ;;
+        2) _require_running && stop_waydroid ;;
+        3) _require_running && install_apk ;;
+        4) _require_running && run_waydroid_script ;;
+        5) _require_running && { print_header; adb devices -l; read -n 1 -p "Press any key..."; } ;;
+        6) _require_running && wait_and_connect_adb $(get_waydroid_ip) ;;
+        7) _require_running && change_display_settings ;;
+        8) _require_running && uninstall_apps_menu ;;
+        9) _require_running && copy_paste_to_android ;;
+        10) _require_running && take_screenshot ;;
+        11) _require_running && record_screen ;;
+        12) _require_running && file_transfer_menu ;;
+        13) _require_running && logcat_viewer ;;
+        14) _require_running && freeze_apps_menu ;;
+        15) _require_running && clear_app_data ;;
+        16) _require_running && quick_launch_app ;;
+        17) _require_running && device_info_panel ;;
+        18) show_status ;;
+        19) set_theme_interactive ;;
+        20) self_update ;;
+        21) clear; exit 0 ;;
         *) echo -e "${RED}Invalid selection.${NC}"; sleep 1 ;;
     esac
 done
