@@ -4,12 +4,31 @@ adb_shell_access() {
     local dev="${CONNECTED_DEVICES[0]}"
     if [ -z "$dev" ]; then
         print_error "No ADB device connected."
-        sleep 2
+        read -n 1 -s -p "Press Enter to continue..."
         return
     fi
-    echo -e "${BOLD}${BLUE}Opening interactive ADB shell for device: ${dev}${NC}"
+    local state
+    state=$(adb devices | awk -v d="$dev" '$1==d {print $2}')
+    echo -e "Device: $dev\nState: $state"
+    read -n 1 -s -p "Press Enter to check device state..."
+    if [ "$state" != "device" ]; then
+        echo -e "\nDevice is not ready (state: $state). Attempting to reconnect..."
+        read -n 1 -s -p "Press Enter to reconnect ADB..."
+        adb disconnect "$dev" >/dev/null 2>&1
+        adb connect "$dev" || true
+        sleep 2
+        state=$(adb devices | awk -v d="$dev" '$1==d {print $2}')
+        echo -e "New state: $state"
+        read -n 1 -s -p "Press Enter to continue..."
+        if [ "$state" != "device" ]; then
+            print_error "Device is still not ready. Please check Waydroid and try again."
+            read -n 1 -s -p "Press Enter to return to menu..."
+            return
+        fi
+    fi
+    echo -e "\n${BOLD}${BLUE}Opening interactive ADB shell for device: ${dev}${NC}"
     echo -e "Type 'exit' to return to the menu.\n"
-    sleep 1
+    read -n 1 -s -p "Press Enter to launch shell..."
     adb -s "$dev" shell
 }
 
