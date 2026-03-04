@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/fpsC7CjChY)
-[![GitHub Release](https://img.shields.io/github/v/tag/Nigel1992/Waydroid-Advanced-Manager?label=Latest%20Release&style=for-the-badge&color=brightgreen)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/releases)
+[![Version](https://img.shields.io/badge/Version-0.7.0-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
 [![License](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge&color=yellow)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/stargazers)
 
