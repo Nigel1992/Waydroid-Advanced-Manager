@@ -2612,59 +2612,44 @@ while true; do
     echo -e "  ${BOLD}24)${NC} ${MAGENTA}CHECK FOR UPDATES${NC}"
     echo -e "  ${BOLD}25)${NC} ${YELLOW}EXIT${NC}"
     echo -e "${CYAN}==================================================${NC}"
-    
-    # Save cursor position for live status update (right before status + separator + prompt)
-    if command -v tput >/dev/null 2>&1; then
-        tput sc
-        _restore_cursor() { tput rc; }
-    else
-        printf '\033[s'
-        _restore_cursor() { printf '\033[u'; }
-    fi
 
-    # Update status + separator + prompt in-place (3 fixed lines)
-    _update_status_line() {
-        _restore_cursor
-        # Line 1: status
-        printf '\033[2K\r'
+    # Print initial status + separator + prompt (3 lines total)
+    _print_status_block() {
         local anydev
         anydev=$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}' | head -n1 || true)
         if [ -n "$anydev" ]; then
             CONNECTED_DEVICES=("$anydev")
-            printf "%b" "${GREEN} ● ACTIVE:${NC} ${anydev}"
+            printf "\033[2K\r%b\n" "${GREEN} ● ACTIVE:${NC} ${anydev}"
         elif [ ${#CONNECTED_DEVICES[@]} -gt 0 ]; then
             local dev="${CONNECTED_DEVICES[0]}"
             local state
             state=$(adb devices 2>/dev/null | awk -v d="$dev" '$1==d {print $2}' || true)
             if [ "$state" = "device" ]; then
-                printf "%b" "${GREEN} ● ACTIVE:${NC} ${dev}"
+                printf "\033[2K\r%b\n" "${GREEN} ● ACTIVE:${NC} ${dev}"
             elif [ -n "$state" ]; then
-                printf "%b" "${YELLOW} ● ${state^^}:${NC} ${dev}"
+                printf "\033[2K\r%b\n" "${YELLOW} ● ${state^^}:${NC} ${dev}"
             else
                 CONNECTED_DEVICES=()
-                printf "%b" "${RED} ● STATUS:${NC} Disconnected"
+                printf "\033[2K\r%b\n" "${RED} ● STATUS:${NC} Disconnected"
             fi
         else
-            printf "%b" "${RED} ● STATUS:${NC} Disconnected"
+            printf "\033[2K\r%b\n" "${RED} ● STATUS:${NC} Disconnected"
         fi
-        # Line 2: separator
-        printf "\n\033[2K\r"
-        printf "%b" "${CYAN}==================================================${NC}"
-        # Line 3: prompt (cleared, cursor stays here for read)
-        printf "\n\033[2K\r"
+        printf "\033[2K\r%b\n" "${CYAN}==================================================${NC}"
+        printf "\033[2K\r"
     }
 
-    _update_status_line
+    _print_status_block
 
     # Read input with 1-second timeout to allow live status refresh
     CHOICE=""
     while true; do
-        printf '\r\033[2K'
         if read -t 1 -p "Selection: " CHOICE 2>/dev/null; then
             break
         fi
-        # No input yet — refresh status in-place, then re-prompt
-        _update_status_line
+        # Move cursor up 3 lines (prompt + separator + status) and reprint
+        printf "\033[3A"
+        _print_status_block
     done
 
     # Helper: require Waydroid running
