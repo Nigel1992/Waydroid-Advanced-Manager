@@ -1,3 +1,15 @@
+# 2026-03-13
+
+## Release v0.8.1
+
+### Added
+- GUI file/folder picker for File Transfer (Option 13). Uses `zenity` to browse and select remote files and directories over ADB; falls back to manual path input when `zenity` is unavailable.
+- `remote_browse()` helper function to navigate the Android filesystem from the host.
+
+### Fixed
+- Fixed scoping bug where `remote_browse()` was nested and unavailable in the File Transfer flow; moved to top-level.
+- Minor README and changelog updates and version bump.
+
 # 2026-03-04
 
 ## Release v0.8.0

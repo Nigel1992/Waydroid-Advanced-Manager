@@ -64,8 +64,8 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Embedded version (single source of truth inside script)
-SCRIPT_VERSION="0.8.0"
-RELEASE_DATE="2026-03-04"
+SCRIPT_VERSION="0.8.1"
+RELEASE_DATE="2026-03-13"
 
 # --- Update Check on Launch ---
 get_latest_version_from_github() {
@@ -1028,6 +1028,7 @@ uninstall_apps_menu() {
         echo ""
         
         read -p "Selection: " APP_CHOICE
+
         case "$APP_CHOICE" in
             1) list_installed_apps ;;
             2) uninstall_by_package ;;
@@ -1845,6 +1846,79 @@ record_screen() {
 }
 
 # --- File Transfer (Push/Pull) ---
+# Remote device browser: navigate Android filesystem via ADB + zenity
+remote_browse() {
+    local mode="$1"   # "file" or "dir"
+    local start_path="${2:-/sdcard}"
+    local dev="${CONNECTED_DEVICES[0]}"
+    if [ -z "$dev" ]; then
+        print_error "No ADB device connected."
+        return 1
+    fi
+
+    local current="$start_path"
+    while true; do
+        # Try to list with -p (append / for directories). Fallback to plain ls if needed.
+        local raw
+        raw=$(adb -s "$dev" shell ls -p -a -1 "$current" 2>/dev/null || adb -s "$dev" shell ls -p -a -1 $current 2>/dev/null || adb -s "$dev" shell ls -a -1 "$current" 2>/dev/null || true)
+        raw=$(echo "$raw" | tr -d '\r')
+
+        # Build menu: optional parent entry, optional select-this-dir marker, then entries
+        local menu=""
+        if [ "$current" != "/" ]; then
+            menu+="../\n"
+        fi
+        if [ "$mode" = "dir" ]; then
+            menu+="[Select This Directory]\n"
+        fi
+        if [ -n "$raw" ]; then
+            menu+="$raw"
+        fi
+
+        # Show zenity list and return the chosen entry
+        local selection
+        selection=$(echo -e "$menu" | zenity --list --title="Browse device: $current" --column="Name" --height=600 --width=700 --modal 2>/dev/null)
+        if [ -z "$selection" ]; then
+            return 1
+        fi
+
+        if [ "$selection" = "../" ] || [ "$selection" = ".." ]; then
+            current=$(dirname "$current")
+            [ -z "$current" ] && current="/"
+            continue
+        fi
+
+        if [ "$selection" = "[Select This Directory]" ]; then
+            echo "$current"
+            return 0
+        fi
+
+        # If entry ends with / it is a directory (ls -p style)
+        if [[ "$selection" == */ ]]; then
+            local name="${selection%/}"
+            if [ "$current" = "/" ]; then
+                current="/$name"
+            else
+                current="$current/$name"
+            fi
+            continue
+        else
+            # File selected
+            if [ "$mode" = "file" ]; then
+                if [ "$current" = "/" ]; then
+                    echo "/$selection"
+                else
+                    echo "$current/$selection"
+                fi
+                return 0
+            else
+                zenity --warning --title="Select Directory" --text="Please select a directory, not a file." --modal 2>/dev/null
+                continue
+            fi
+        fi
+    done
+}
+
 file_transfer_menu() {
     while true; do
         print_header
@@ -1874,19 +1948,32 @@ file_transfer_menu() {
                     sleep 1
                     continue
                 fi
-                local dest
-                read -p "Android destination (default /sdcard/): " dest
-                dest=${dest:-/sdcard/}
-                print_status "Pushing $(basename "$src_file") to $dest..."
-                adb -s "${CONNECTED_DEVICES[0]}" push "$src_file" "$dest" 2>&1
+                local remote_dest
+                if command -v zenity >/dev/null 2>&1; then
+                    remote_dest=$(remote_browse "dir" "/sdcard")
+                else
+                    read -p "Android destination (default /sdcard/): " remote_dest
+                    remote_dest=${remote_dest:-/sdcard/}
+                fi
+                if [ -z "$remote_dest" ]; then
+                    print_error "No destination selected."
+                    sleep 1
+                    continue
+                fi
+                print_status "Pushing $(basename "$src_file") to $remote_dest..."
+                adb -s "${CONNECTED_DEVICES[0]}" push "$src_file" "$remote_dest" 2>&1
                 print_success "Done."
                 read -n 1 -p "Press any key..."
                 ;;
             2)
                 local remote_file
-                read -p "Android file path (e.g. /sdcard/myfile.txt): " remote_file
+                if command -v zenity >/dev/null 2>&1; then
+                    remote_file=$(remote_browse "file" "/sdcard")
+                else
+                    read -p "Android file path (e.g. /sdcard/myfile.txt): " remote_file
+                fi
                 if [ -z "$remote_file" ]; then
-                    print_error "No path entered."
+                    print_error "No path selected."
                     sleep 1
                     continue
                 fi
@@ -1904,9 +1991,13 @@ file_transfer_menu() {
                 ;;
             3)
                 local remote_dir
-                read -p "Android directory (e.g. /sdcard/DCIM/): " remote_dir
+                if command -v zenity >/dev/null 2>&1; then
+                    remote_dir=$(remote_browse "dir" "/sdcard")
+                else
+                    read -p "Android directory (e.g. /sdcard/DCIM/): " remote_dir
+                fi
                 if [ -z "$remote_dir" ]; then
-                    print_error "No path entered."
+                    print_error "No path selected."
                     sleep 1
                     continue
                 fi

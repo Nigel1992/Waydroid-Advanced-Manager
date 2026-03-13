@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/fpsC7CjChY)
-[![Version](https://img.shields.io/badge/Version-0.8.0-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
+[![Version](https://img.shields.io/badge/Version-0.8.1-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
 [![License](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge&color=yellow)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/stargazers)
 
@@ -35,16 +35,13 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 
 ## ✨ Features at a Glance
 
-### 🆕 What's New in 0.8.0
+### 🆕 What's New in 0.8.1
 
-- **ADB Shell Access** (Option 3): Drop into an interactive ADB shell directly from the menu, with automatic device state checks and reconnection.
-- **APK Downloader** (Option 19): Search APKMirror by app name or download APKs from a direct URL, with optional immediate install.
-- **Theme Customization** (Option 20): Choose from 6 color schemes — Light, Dark, Ocean, Forest, Sunset, Neon — all persisted to config.
-- **Accessibility Tools** (Option 21): Large Text mode, Text-to-Speech status readout, and High-Contrast mode for comfortable terminal use.
-- **Realtime Resource Monitor** (Option 23): Live CPU, RAM, and Disk usage updating in-place every second for a true dashboard experience.
-- **Session Attach Fix**: Menu options now work after attaching to an existing ADB session, even if Waydroid status is not RUNNING.
-- **Robust ADB detection**: Improved fallback logic for session detection and device connection.
-- **Bugfixes**: No more false "Waydroid is not running" errors when attached; resource monitor no longer scrolls, but updates in-place.
+- **File Transfer GUI** (Option 13): Added a graphical file/folder picker for both host and device paths using `zenity` so you no longer need to type full Android paths. Falls back to manual input if `zenity` isn't available.
+- **remote_browse() helper**: New helper to browse the Android filesystem over ADB; used by push/pull flows.
+- **Fix**: Resolved a scoping bug where `remote_browse()` was accidentally defined nested; moved it to top-level.
+
+### 🆕 What's New in 0.8.0
 
 ### 🟢 Core
 | Feature | Description |
@@ -556,7 +553,7 @@ sudo waydroid init
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 
-**Latest release: v0.8.0** (2026-03-04)
+**Latest release: v0.8.1** (2026-03-13)
 
 ---
 
