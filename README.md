@@ -15,6 +15,8 @@ Start, stop, manage apps, transfer files, capture screenshots, record screens, v
 
 </div>
 
+
+
 ---
 
 ## 📋 Table of Contents
