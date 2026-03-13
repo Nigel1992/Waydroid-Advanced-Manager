@@ -9,6 +9,8 @@
 
 **The ultimate all-in-one terminal toolkit for Waydroid power users.**
 
+![Waydroid Manager UI Console](https://i.imgur.com/90m9ELi.png)
+
 Start, stop, manage apps, transfer files, capture screenshots, record screens, view logs — and much more — all from a beautiful, organized CLI with safety checks and graphical dialog support.
 
 [Getting Started](#-quick-start) · [Features](#-features-at-a-glance) · [CLI Flags](#%EF%B8%8F-cli-flags-non-interactive) · [FAQ](#-frequently-asked-questions) · [Contributing](#-contributing)
