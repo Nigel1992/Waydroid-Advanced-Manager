@@ -15,7 +15,7 @@ concurrency:
 jobs:
   moderate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - name: Moderate content or verify API connection
         env:
@@ -24,24 +24,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: python
         run: |
-          import json, os, re, time, urllib.request, urllib.error
+          import json, os, re, urllib.request, urllib.error
           
           
-          def request(url, payload=None, headers=None, method=None, retries=0):
+          def request(url, payload=None, headers=None, method=None):
               req = urllib.request.Request(url, data=json.dumps(payload).encode() if payload is not None else None,
                                            headers={'Content-Type': 'application/json', **(headers or {})}, method=method)
-              for attempt in range(retries + 1):
-                  try:
-                      with urllib.request.urlopen(req, timeout=60) as response:
-                          raw = response.read()
-                          return json.loads(raw) if raw else {}
-                  except urllib.error.HTTPError as exc:
-                      if exc.code in (429, 500, 502, 503, 504) and attempt < retries:
-                          print(f'Temporary API error {exc.code}; retrying after backoff')
-                          time.sleep(10 * 2 ** attempt)
-                          continue
-                      # Never log response bodies, tokens, or submitted user content.
-                      raise RuntimeError(f'API request failed with HTTP {exc.code}') from None
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      raw = response.read()
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as exc:
+                  # Never log response bodies, tokens, or submitted user content.
+                  raise RuntimeError(f'API request failed with HTTP {exc.code}') from None
           
           
           def classify(text):
@@ -61,7 +56,7 @@ jobs:
                   {'systemInstruction': {'parts': [{'text': policy}]},
                    'contents': [{'role': 'user', 'parts': [{'text': text}]}],
                    'generationConfig': {'temperature': 0, 'maxOutputTokens': 1024}},
-                  {'x-goog-api-key': key}, retries=3)
+                  {'x-goog-api-key': key})
               parts = (data.get('candidates') or [{}])[0].get('content', {}).get('parts', [])
               answer = ''.join(p.get('text', '') for p in parts if not p.get('thought')).strip()
               if answer not in ('[OK]', '[FLAGGED]'):
