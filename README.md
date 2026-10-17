@@ -1,8 +1,10 @@
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white)](https://discord.gg/UbPRh74PzV)
+
 # 🚀 Waydroid Advanced Manager
 
 <div align="center">
 
-[![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/fpsC7CjChY)
+[![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/UbPRh74PzV)
 [![Version](https://img.shields.io/badge/Version-0.8.1-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
 [![License](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge&color=yellow)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/stargazers)
@@ -577,7 +579,7 @@ Contributions are welcome! Here's how you can help:
 3. **🔧 Submit a PR** — Fork the repo, make your changes, and open a pull request
 4. **⭐ Star the repo** — It helps others discover the project!
 
-Please join our [Discord community](https://discord.gg/fpsC7CjChY) for discussions, support, and updates.
+Please join our [Discord community](https://discord.gg/UbPRh74PzV) for discussions, support, and updates.
 
 ---
 
