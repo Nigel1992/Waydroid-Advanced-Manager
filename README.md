@@ -1,4 +1,4 @@
-[![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/UbPRh74PzV))
+[![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/9F2NZuydXT))
 
 
 # 🚀 Waydroid Advanced Manager
@@ -7,7 +7,7 @@
 
 <div align="center">
 
-[![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/UbPRh74PzV))
+[![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/9F2NZuydXT))
 [![Version](https://img.shields.io/badge/Version-0.8.1-brightgreen?style=for-the-badge)](https://github.com/Nigel1992/Waydroid-Advanced-Manager)
 [![License](https://img.shields.io/github/license/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Nigel1992/Waydroid-Advanced-Manager?style=for-the-badge&color=yellow)](https://github.com/Nigel1992/Waydroid-Advanced-Manager/stargazers)
@@ -582,7 +582,7 @@ Contributions are welcome! Here's how you can help:
 3. **🔧 Submit a PR** — Fork the repo, make your changes, and open a pull request
 4. **⭐ Star the repo** — It helps others discover the project!
 
-Please join our [![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/UbPRh74PzV)) for discussions, support, and updates.
+Please join our [![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/9F2NZuydXT)) for discussions, support, and updates.
 
 ---
 
