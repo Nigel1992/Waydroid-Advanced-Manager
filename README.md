@@ -566,38 +566,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 
 ## 💖 Support the Project
 
-All donations go towards your chosen charity. You can pick any charity you'd like, and 5% is retained due to Ko-Fi fees. As a thank you, your name will be listed as a supporter/donor in a GitHub project. Feel free to email me at thedjskywalker@gmail.com for proof! :)
+I build this project in my free time and don't need donations for myself. If you'd like to give something back, I'd kindly ask you to donate to a charity of your choice instead — they need it far more than I do. If you still prefer to support me directly in private, thank you so much; it's genuinely appreciated.
 
 [![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20me-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/nigel1992)
 [![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/donate/?hosted_button_id=KYV9ARF99ZSCE)
-
----
-
-## 📣 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. **🐛 Report bugs** — [Open an issue](https://github.com/Nigel1992/Waydroid-Advanced-Manager/issues) with details and reproduction steps
-2. **💡 Suggest features** — Describe your idea in an issue or start a discussion
-3. **🔧 Submit a PR** — Fork the repo, make your changes, and open a pull request
-4. **⭐ Star the repo** — It helps others discover the project!
-
-Please join our [![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)]([![Discord](https://img.shields.io/discord/1468295714961494029?color=7289da&label=Join%20Our%20Discord&logo=discord&logoColor=white&style=for-the-badge)](https://discord.gg/9F2NZuydXT)) for discussions, support, and updates.
-
----
-
-## 📜 License
-
-This project is licensed under the **MIT License**. See the [`LICENSE`](LICENSE) file for the full text.
-
-Copyright © 2026 Nigel Hagen
-
----
-
-<div align="center">
-
-**Built with care for the Waydroid community** 💙
-
-[⬆ Back to top](#-waydroid-advanced-manager)
-
-</div>
